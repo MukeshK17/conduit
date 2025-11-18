@@ -128,7 +128,7 @@ class Database:
 
     async def save_complete_interaction(
         self,
-        routing: RoutingDecision,
+        routing: RoutingDecision | None,
         response: Response,
         feedback: Feedback | None = None,
     ) -> None:
@@ -138,7 +138,7 @@ class Database:
         Note: For true atomicity, implement as database RPC function in future
 
         Args:
-            routing: Routing decision
+            routing: Routing decision (optional - for feedback-only saves)
             response: LLM response
             feedback: Optional user feedback
 
@@ -149,17 +149,18 @@ class Database:
             raise DatabaseError("Database not connected")
 
         try:
-            # Save routing decision
-            routing_data = {
-                "id": routing.id,
-                "query_id": routing.query_id,
-                "selected_model": routing.selected_model,
-                "confidence": routing.confidence,
-                "features": json.dumps(routing.features.model_dump()),
-                "reasoning": routing.reasoning,
-                "created_at": routing.created_at.isoformat(),
-            }
-            await self.client.table("routing_decisions").insert(routing_data).execute()  # type: ignore[arg-type]
+            # Save routing decision (if provided)
+            if routing is not None:
+                routing_data = {
+                    "id": routing.id,
+                    "query_id": routing.query_id,
+                    "selected_model": routing.selected_model,
+                    "confidence": routing.confidence,
+                    "features": json.dumps(routing.features.model_dump()),
+                    "reasoning": routing.reasoning,
+                    "created_at": routing.created_at.isoformat(),
+                }
+                await self.client.table("routing_decisions").insert(routing_data).execute()  # type: ignore[arg-type]
 
             # Save response
             response_data = {
@@ -187,8 +188,9 @@ class Database:
                 }
                 await self.client.table("feedback").insert(feedback_data).execute()  # type: ignore[arg-type]
 
+            routing_id = routing.id if routing is not None else "none"
             logger.info(
-                f"Saved complete interaction: routing={routing.id}, response={response.id}"
+                f"Saved complete interaction: routing={routing_id}, response={response.id}"
             )
 
         except Exception as e:
