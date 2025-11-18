@@ -1,9 +1,9 @@
 """Thompson Sampling contextual bandit for model selection."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 
 from conduit.core.models import ModelState, QueryFeatures
 
@@ -120,7 +120,7 @@ class ContextualBandit:
             success = False
 
         state.total_requests += 1
-        state.updated_at = datetime.now(UTC)
+        state.updated_at = datetime.now(timezone.utc)
 
         logger.info(
             f"Updated {model}: α={state.alpha:.2f}, β={state.beta:.2f}, "

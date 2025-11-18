@@ -3,11 +3,11 @@
 import asyncio
 import logging
 import time
-from typing import Any, Type
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent  # type: ignore[import-not-found]
 
 from conduit.core.exceptions import ExecutionError
 from conduit.core.models import Response
@@ -26,7 +26,7 @@ class ModelExecutor:
         self,
         model: str,
         prompt: str,
-        result_type: Type[BaseModel],
+        result_type: type[BaseModel],
         query_id: str,
         timeout: float = 60.0,
     ) -> Response:
@@ -75,7 +75,7 @@ class ModelExecutor:
                 tokens=result.usage().total_tokens,
             )
 
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             latency = time.time() - start_time
             logger.error(
                 f"Execution timeout for {model} after {latency:.2f}s (limit: {timeout}s)"
@@ -83,12 +83,12 @@ class ModelExecutor:
             raise ExecutionError(
                 f"Model {model} exceeded timeout of {timeout}s",
                 details={"latency": latency, "timeout": timeout},
-            )
+            ) from e
         except Exception as e:
             logger.error(f"Execution failed for {model}: {e}")
             raise ExecutionError(f"Model {model} failed: {e}") from e
 
-    def _get_agent(self, model: str, result_type: Type[BaseModel]) -> Agent:
+    def _get_agent(self, model: str, result_type: type[BaseModel]) -> Agent:
         """Get cached or create new PydanticAI agent.
 
         Args:
@@ -101,10 +101,10 @@ class ModelExecutor:
         cache_key = f"{model}_{result_type.__name__}"
 
         if cache_key not in self.clients:
-            self.clients[cache_key] = Agent(model=model, output_type=result_type)  # type: ignore
+            self.clients[cache_key] = Agent(model=model, output_type=result_type)
             logger.debug(f"Created new agent for {cache_key}")
 
-        return self.clients[cache_key]  # type: ignore
+        return self.clients[cache_key]
 
     def _compute_cost(self, usage: dict[str, Any], model: str) -> float:
         """Compute cost based on token usage and model pricing.
@@ -135,9 +135,8 @@ class ModelExecutor:
         input_tokens = usage.get("request_tokens", 0)
         output_tokens = usage.get("response_tokens", 0)
 
-        cost = (
-            (input_tokens / 1000) * model_pricing["input"]
-            + (output_tokens / 1000) * model_pricing["output"]
-        )
+        cost = (input_tokens / 1000) * model_pricing["input"] + (
+            output_tokens / 1000
+        ) * model_pricing["output"]
 
-        return cost
+        return float(cost)

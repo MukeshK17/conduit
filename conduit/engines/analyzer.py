@@ -1,9 +1,8 @@
 """Query analysis and feature extraction for routing decisions."""
 
 import re
-from typing import Any
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
 
 from conduit.core.models import QueryFeatures
 
@@ -208,7 +207,7 @@ class DomainClassifier:
             True
         """
         query_lower = query.lower()
-        domain_scores: dict[str, int] = {domain: 0 for domain in self.DOMAIN_KEYWORDS}
+        domain_scores: dict[str, int] = dict.fromkeys(self.DOMAIN_KEYWORDS, 0)
 
         # Count keyword matches per domain
         for domain, keywords in self.DOMAIN_KEYWORDS.items():

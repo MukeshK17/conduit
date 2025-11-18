@@ -1,7 +1,6 @@
 """Routing engine for ML-powered model selection."""
 
 import logging
-from uuid import uuid4
 
 from conduit.core.models import (
     Query,
@@ -158,7 +157,9 @@ class RoutingEngine:
         }
 
         for model in models:
-            specs = model_specs.get(model, {"cost": 0.001, "latency": 2.0, "quality": 0.8})
+            specs = model_specs.get(
+                model, {"cost": 0.001, "latency": 2.0, "quality": 0.8}
+            )
 
             # Check constraints
             if constraints.max_cost and specs["cost"] > constraints.max_cost:
@@ -193,13 +194,19 @@ class RoutingEngine:
             Relaxed constraints
         """
         return QueryConstraints(
-            max_cost=constraints.max_cost * (1 + factor) if constraints.max_cost else None,
-            max_latency=constraints.max_latency * (1 + factor)
-            if constraints.max_latency
-            else None,
-            min_quality=constraints.min_quality * (1 - factor)
-            if constraints.min_quality
-            else None,
+            max_cost=(
+                constraints.max_cost * (1 + factor) if constraints.max_cost else None
+            ),
+            max_latency=(
+                constraints.max_latency * (1 + factor)
+                if constraints.max_latency
+                else None
+            ),
+            min_quality=(
+                constraints.min_quality * (1 - factor)
+                if constraints.min_quality
+                else None
+            ),
             preferred_provider=constraints.preferred_provider,
         )
 

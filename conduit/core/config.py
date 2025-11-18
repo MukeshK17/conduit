@@ -4,7 +4,7 @@ This module provides centralized configuration loading from environment
 variables with validation and type safety.
 """
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # Supabase Database
-    database_url: str = Field(..., description="PostgreSQL connection string")
+    database_url: str = Field(default="", description="PostgreSQL connection string")
     database_pool_size: int = Field(
         default=20, description="Connection pool size", ge=1, le=100
     )
@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider API Keys
-    openai_api_key: str | None = Field(None, description="OpenAI API key")
-    anthropic_api_key: str | None = Field(None, description="Anthropic API key")
-    google_api_key: str | None = Field(None, description="Google API key")
-    groq_api_key: str | None = Field(None, description="Groq API key")
+    openai_api_key: str = Field(default="", description="OpenAI API key")
+    anthropic_api_key: str = Field(default="", description="Anthropic API key")
+    google_api_key: str = Field(default="", description="Google API key")
+    groq_api_key: str = Field(default="", description="Groq API key")
 
     # ML Configuration
     embedding_model: str = Field(
@@ -70,13 +70,22 @@ class Settings(BaseSettings):
 
     # Execution Timeouts
     llm_timeout_default: float = Field(
-        default=60.0, description="Default LLM call timeout in seconds", ge=1.0, le=300.0
+        default=60.0,
+        description="Default LLM call timeout in seconds",
+        ge=1.0,
+        le=300.0,
     )
     llm_timeout_fast: float = Field(
-        default=30.0, description="Timeout for fast models (mini) in seconds", ge=1.0, le=300.0
+        default=30.0,
+        description="Timeout for fast models (mini) in seconds",
+        ge=1.0,
+        le=300.0,
     )
     llm_timeout_premium: float = Field(
-        default=90.0, description="Timeout for premium models (opus) in seconds", ge=1.0, le=300.0
+        default=90.0,
+        description="Timeout for premium models (opus) in seconds",
+        ge=1.0,
+        le=300.0,
     )
 
     # Logging

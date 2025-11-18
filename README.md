@@ -43,11 +43,72 @@ await router.feedback(
 )
 ```
 
-## Installation
+## Installation & Setup
+
+### Prerequisites
+
+- Python 3.10+ (3.13 recommended)
+- Supabase account (free tier works)
+- Redis instance (optional for Phase 2+ caching)
+- LLM API keys (OpenAI, Anthropic, Google, or Groq)
+
+### Step 1: Clone and Install
 
 ```bash
-pip install conduit-router
+git clone https://github.com/MisfitIdeas/conduit.git
+cd conduit
+
+# Create virtual environment
+python3.13 -m venv .venv
+source .venv/bin/activate
+
+# Install core dependencies
+pip install -e .
+
+# Install development tools
+pip install mypy black ruff pytest pytest-asyncio pytest-cov psycopg2-binary
 ```
+
+**Note:** Some ML dependencies (scipy, scikit-learn) require Fortran compilers. If installation fails, you can still use the core functionality.
+
+### Step 2: Environment Configuration
+
+Create `.env` file:
+```bash
+# LLM Provider API Keys (at least one required)
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+GOOGLE_API_KEY=your_google_key_here
+GROQ_API_KEY=your_groq_key_here
+
+# Supabase (required)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key_here
+DATABASE_URL=postgresql://postgres.your-project:[password]@aws-0-region.pooler.supabase.com:6543/postgres
+
+# Redis (optional - Phase 2+)
+REDIS_URL=redis://localhost:6379
+
+# Application
+LOG_LEVEL=INFO
+ENVIRONMENT=development
+```
+
+### Step 3: Database Setup
+
+**Option A: Using Alembic (recommended)**
+```bash
+# Ensure DATABASE_URL in .env points to Supabase pooler connection
+./migrate.sh
+```
+
+**Option B: Manual SQL (if pooler not available)**
+```bash
+# Copy SQL content and paste into Supabase SQL Editor
+cat migrations/001_initial_schema.sql
+```
+
+See `migrations/DEPLOYMENT.md` for detailed migration instructions.
 
 ## Tech Stack
 

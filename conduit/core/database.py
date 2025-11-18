@@ -1,10 +1,18 @@
-"""Supabase PostgreSQL database interface with transaction management."""
+"""Supabase database interface using PostgREST for REST API access.
+
+Migration Rationale (2025-11-18):
+    - Supabase free tier blocks direct PostgreSQL connections (port 5432)
+    - Using supabase-py client library for REST API access instead of asyncpg
+    - Maintains same interface, different underlying implementation
+    - See notes/2025-11-18_database_connection_issue.md for details
+"""
 
 import json
 import logging
-from typing import Any
+import os
+from typing import Any, cast
 
-import asyncpg
+from supabase import AsyncClient, acreate_client
 
 from conduit.core.exceptions import DatabaseError
 from conduit.core.models import (
@@ -19,48 +27,64 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    """Supabase PostgreSQL interface with transaction management.
+    """Supabase database interface via PostgREST API.
 
     Transaction Boundaries:
-        - Single row inserts: Auto-commit (no explicit transaction)
-        - Feedback loop updates: Transaction (query → routing → response → feedback)
-        - Batch operations: Transaction for consistency
-        - Model state updates: Auto-commit (last-write-wins acceptable)
+        - Single row inserts: Auto-commit (REST API atomicity)
+        - Feedback loop updates: Application-level transaction emulation
+        - Batch operations: Use RPC functions for server-side transactions
+        - Model state updates: UPSERT for idempotent updates
         - Circuit breaker state: Auto-commit (eventual consistency)
 
-    Isolation Level: READ COMMITTED (PostgreSQL default)
-    Retry Strategy: Exponential backoff on deadlock/serialization failure
+    Note: PostgREST API doesn't support multi-statement transactions like asyncpg.
+    For atomic multi-table operations, use database RPC functions (stored procedures).
     """
 
-    def __init__(self, connection_string: str):
-        """Initialize database connection pool.
+    def __init__(
+        self, supabase_url: str | None = None, supabase_key: str | None = None
+    ):
+        """Initialize Supabase client configuration.
 
         Args:
-            connection_string: PostgreSQL connection URL
+            supabase_url: Supabase project URL (defaults to SUPABASE_URL env var)
+            supabase_key: Supabase anon/service key (defaults to SUPABASE_ANON_KEY env var)
+
+        Raises:
+            ValueError: If URL or key not provided and not in environment
         """
-        self.connection_string = connection_string
-        self.pool: asyncpg.Pool | None = None
+        self.supabase_url = supabase_url or os.getenv("SUPABASE_URL")
+        self.supabase_key = supabase_key or os.getenv("SUPABASE_ANON_KEY")
+
+        if not self.supabase_url or not self.supabase_key:
+            raise ValueError(
+                "Supabase URL and key must be provided or set in environment "
+                "(SUPABASE_URL, SUPABASE_ANON_KEY)"
+            )
+
+        self.client: AsyncClient | None = None
 
     async def connect(self) -> None:
-        """Create connection pool."""
-        self.pool = await asyncpg.create_pool(
-            self.connection_string,
-            min_size=5,
-            max_size=20,
-            command_timeout=60.0,
-        )
-        logger.info("Database connection pool created")
+        """Create Supabase async client connection."""
+        if not self.supabase_url or not self.supabase_key:
+            raise DatabaseError("Supabase URL and key must be set before connecting")
+        self.client = await acreate_client(self.supabase_url, self.supabase_key)
+        logger.info("Supabase client connected via REST API")
 
     async def disconnect(self) -> None:
-        """Close connection pool."""
-        if self.pool:
-            await self.pool.close()
-            logger.info("Database connection pool closed")
+        """Close Supabase client connection.
+
+        Note: supabase-py AsyncClient doesn't have explicit close() method.
+        Connection cleanup relies on garbage collection. Setting client to None
+        allows garbage collector to clean up resources.
+        """
+        if self.client:
+            self.client = None
+            logger.info("Supabase client connection closed")
 
     async def save_query(self, query: Query) -> str:
         """Save query and return ID.
 
-        Transaction: None (single INSERT, auto-commit)
+        Transaction: None (single INSERT via REST API)
 
         Args:
             query: Query to save
@@ -71,27 +95,32 @@ class Database:
         Raises:
             DatabaseError: If save fails
         """
-        if not self.pool:
+        if not self.client:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                query_id = await conn.fetchval(
-                    """
-                    INSERT INTO queries (id, text, user_id, context, constraints, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    RETURNING id
-                    """,
-                    query.id,
-                    query.text,
-                    query.user_id,
-                    json.dumps(query.context) if query.context else None,
+            # Prepare data for insertion
+            data = {
+                "id": query.id,
+                "text": query.text,
+                "user_id": query.user_id,
+                "context": json.dumps(query.context) if query.context else None,
+                "constraints": (
                     json.dumps(query.constraints.model_dump())
                     if query.constraints
-                    else None,
-                    query.created_at,
-                )
-            return str(query_id)
+                    else None
+                ),
+                "created_at": query.created_at.isoformat(),
+            }
+
+            # Insert via PostgREST
+            response = await self.client.table("queries").insert(data).execute()
+
+            if not response.data:
+                raise DatabaseError("Insert returned no data")
+
+            row = cast(dict[str, Any], response.data[0])
+            return str(row["id"])
 
         except Exception as e:
             logger.error(f"Failed to save query: {e}")
@@ -103,10 +132,10 @@ class Database:
         response: Response,
         feedback: Feedback | None = None,
     ) -> None:
-        """Save routing decision, response, and optional feedback atomically.
+        """Save routing decision, response, and optional feedback.
 
-        Transaction: REQUIRED (ensures consistency of related records)
-        Rollback: On any failure, all records rolled back
+        Transaction: Application-level (PostgREST doesn't support transactions)
+        Note: For true atomicity, implement as database RPC function in future
 
         Args:
             routing: Routing decision
@@ -116,58 +145,47 @@ class Database:
         Raises:
             DatabaseError: If save fails
         """
-        if not self.pool:
+        if not self.client:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                async with conn.transaction():
-                    # Save routing decision
-                    await conn.execute(
-                        """
-                        INSERT INTO routing_decisions (id, query_id, selected_model, confidence, features, reasoning, created_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        """,
-                        routing.id,
-                        routing.query_id,
-                        routing.selected_model,
-                        routing.confidence,
-                        json.dumps(routing.features.model_dump()),
-                        routing.reasoning,
-                        routing.created_at,
-                    )
+            # Save routing decision
+            routing_data = {
+                "id": routing.id,
+                "query_id": routing.query_id,
+                "selected_model": routing.selected_model,
+                "confidence": routing.confidence,
+                "features": json.dumps(routing.features.model_dump()),
+                "reasoning": routing.reasoning,
+                "created_at": routing.created_at.isoformat(),
+            }
+            await self.client.table("routing_decisions").insert(routing_data).execute()  # type: ignore[arg-type]
 
-                    # Save response
-                    await conn.execute(
-                        """
-                        INSERT INTO responses (id, query_id, model, text, cost, latency, tokens, created_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                        """,
-                        response.id,
-                        response.query_id,
-                        response.model,
-                        response.text,
-                        response.cost,
-                        response.latency,
-                        response.tokens,
-                        response.created_at,
-                    )
+            # Save response
+            response_data = {
+                "id": response.id,
+                "query_id": response.query_id,
+                "model": response.model,
+                "text": response.text,
+                "cost": response.cost,
+                "latency": response.latency,
+                "tokens": response.tokens,
+                "created_at": response.created_at.isoformat(),
+            }
+            await self.client.table("responses").insert(response_data).execute()  # type: ignore[arg-type]
 
-                    # Save feedback if provided
-                    if feedback:
-                        await conn.execute(
-                            """
-                            INSERT INTO feedback (id, response_id, quality_score, user_rating, met_expectations, comments, created_at)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            """,
-                            feedback.id,
-                            feedback.response_id,
-                            feedback.quality_score,
-                            feedback.user_rating,
-                            feedback.met_expectations,
-                            feedback.comments,
-                            feedback.created_at,
-                        )
+            # Save feedback if provided
+            if feedback:
+                feedback_data = {
+                    "id": feedback.id,
+                    "response_id": feedback.response_id,
+                    "quality_score": feedback.quality_score,
+                    "user_rating": feedback.user_rating,
+                    "met_expectations": feedback.met_expectations,
+                    "comments": feedback.comments,
+                    "created_at": feedback.created_at.isoformat(),
+                }
+                await self.client.table("feedback").insert(feedback_data).execute()  # type: ignore[arg-type]
 
             logger.info(
                 f"Saved complete interaction: routing={routing.id}, response={response.id}"
@@ -180,7 +198,7 @@ class Database:
     async def update_model_state(self, state: ModelState) -> None:
         """Update model's Beta parameters.
 
-        Transaction: None (UPSERT with ON CONFLICT, auto-commit)
+        Transaction: None (UPSERT via PostgREST)
         Concurrency: Last-write-wins acceptable for ML updates
 
         Args:
@@ -189,27 +207,26 @@ class Database:
         Raises:
             DatabaseError: If update fails
         """
-        if not self.pool:
+        if not self.client:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO model_states (model_id, alpha, beta, total_requests, total_cost, avg_quality, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (model_id) DO UPDATE
-                    SET alpha = $2, beta = $3, total_requests = $4,
-                        total_cost = $5, avg_quality = $6, updated_at = $7
-                    """,
-                    state.model_id,
-                    state.alpha,
-                    state.beta,
-                    state.total_requests,
-                    state.total_cost,
-                    state.avg_quality,
-                    state.updated_at,
-                )
+            data = {
+                "model_id": state.model_id,
+                "alpha": state.alpha,
+                "beta": state.beta,
+                "total_requests": state.total_requests,
+                "total_cost": state.total_cost,
+                "avg_quality": state.avg_quality,
+                "updated_at": state.updated_at.isoformat(),
+            }
+
+            # PostgREST upsert using on_conflict parameter
+            await (
+                self.client.table("model_states")
+                .upsert(data, on_conflict="model_id")  # type: ignore[arg-type]
+                .execute()
+            )
 
             logger.debug(f"Updated model state: {state.model_id}")
 
@@ -220,7 +237,7 @@ class Database:
     async def get_model_states(self) -> dict[str, ModelState]:
         """Load all model states.
 
-        Transaction: None (single SELECT, read-only)
+        Transaction: None (single SELECT via REST API)
 
         Returns:
             Dictionary mapping model_id to ModelState
@@ -228,25 +245,24 @@ class Database:
         Raises:
             DatabaseError: If load fails
         """
-        if not self.pool:
+        if not self.client:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                rows = await conn.fetch("SELECT * FROM model_states")
+            response = await self.client.table("model_states").select("*").execute()
 
-            states = {
-                row["model_id"]: ModelState(
-                    model_id=row["model_id"],
-                    alpha=row["alpha"],
-                    beta=row["beta"],
-                    total_requests=row["total_requests"],
-                    total_cost=row["total_cost"],
-                    avg_quality=row["avg_quality"],
+            states = {}
+            for item in response.data:
+                row = cast(dict[str, Any], item)
+                states[str(row["model_id"])] = ModelState(
+                    model_id=str(row["model_id"]),
+                    alpha=float(row["alpha"]),
+                    beta=float(row["beta"]),
+                    total_requests=int(row["total_requests"]),
+                    total_cost=float(row["total_cost"]),
+                    avg_quality=float(row["avg_quality"]),
                     updated_at=row["updated_at"],
                 )
-                for row in rows
-            }
 
             logger.info(f"Loaded {len(states)} model states")
             return states
@@ -267,26 +283,29 @@ class Database:
         Raises:
             DatabaseError: If query fails
         """
-        if not self.pool:
+        if not self.client:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    "SELECT * FROM responses WHERE id = $1", response_id
-                )
+            response = await (
+                self.client.table("responses")
+                .select("*")
+                .eq("id", response_id)
+                .execute()
+            )
 
-            if not row:
+            if not response.data:
                 return None
 
+            row = cast(dict[str, Any], response.data[0])
             return Response(
-                id=row["id"],
-                query_id=row["query_id"],
-                model=row["model"],
-                text=row["text"],
-                cost=row["cost"],
-                latency=row["latency"],
-                tokens=row["tokens"],
+                id=str(row["id"]),
+                query_id=str(row["query_id"]),
+                model=str(row["model"]),
+                text=str(row["text"]),
+                cost=float(row["cost"]),
+                latency=float(row["latency"]),
+                tokens=int(row["tokens"]),
                 created_at=row["created_at"],
             )
 
