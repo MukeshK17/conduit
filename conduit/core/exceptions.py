@@ -4,11 +4,13 @@ This module defines custom exceptions for different failure modes
 in the routing pipeline.
 """
 
+from typing import Any
+
 
 class ConduitError(Exception):
     """Base exception for all Conduit errors."""
 
-    def __init__(self, message: str, details: dict | None = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
         self.details = details or {}

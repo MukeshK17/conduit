@@ -41,7 +41,7 @@ class Database:
         self.connection_string = connection_string
         self.pool: asyncpg.Pool | None = None
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Create connection pool."""
         self.pool = await asyncpg.create_pool(
             self.connection_string,
@@ -51,7 +51,7 @@ class Database:
         )
         logger.info("Database connection pool created")
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Close connection pool."""
         if self.pool:
             await self.pool.close()
@@ -102,7 +102,7 @@ class Database:
         routing: RoutingDecision,
         response: Response,
         feedback: Feedback | None = None,
-    ):
+    ) -> None:
         """Save routing decision, response, and optional feedback atomically.
 
         Transaction: REQUIRED (ensures consistency of related records)
@@ -177,7 +177,7 @@ class Database:
             logger.error(f"Failed to save interaction: {e}")
             raise DatabaseError(f"Failed to save interaction: {e}") from e
 
-    async def update_model_state(self, state: ModelState):
+    async def update_model_state(self, state: ModelState) -> None:
         """Update model's Beta parameters.
 
         Transaction: None (UPSERT with ON CONFLICT, auto-commit)

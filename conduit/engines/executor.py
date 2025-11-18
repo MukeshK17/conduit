@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Type
+from typing import Any, Type
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 class ModelExecutor:
     """Execute LLM calls via PydanticAI."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize executor with agent cache."""
-        self.clients: dict[str, Agent] = {}
+        self.clients: dict[str, Agent[Any, Any]] = {}
 
     async def execute(
         self,
@@ -101,12 +101,12 @@ class ModelExecutor:
         cache_key = f"{model}_{result_type.__name__}"
 
         if cache_key not in self.clients:
-            self.clients[cache_key] = Agent(model=model, result_type=result_type)
+            self.clients[cache_key] = Agent(model=model, output_type=result_type)  # type: ignore
             logger.debug(f"Created new agent for {cache_key}")
 
-        return self.clients[cache_key]
+        return self.clients[cache_key]  # type: ignore
 
-    def _compute_cost(self, usage: dict, model: str) -> float:
+    def _compute_cost(self, usage: dict[str, Any], model: str) -> float:
         """Compute cost based on token usage and model pricing.
 
         Args:

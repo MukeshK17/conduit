@@ -87,7 +87,7 @@ class ContextualBandit:
 
     def update(
         self, model: str, reward: float, query_id: str, success_threshold: float = 0.7
-    ):
+    ) -> None:
         """Update model's Beta distribution using Thompson Sampling.
 
         Args:
@@ -210,7 +210,7 @@ class ContextualBandit:
 
         return self.model_states[model]
 
-    def load_states(self, states: dict[str, ModelState]):
+    def load_states(self, states: dict[str, ModelState]) -> None:
         """Load model states from database.
 
         Args:
