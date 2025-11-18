@@ -80,6 +80,9 @@ class RoutingDecision(BaseModel):
     )
     features: QueryFeatures = Field(..., description="Extracted query features")
     reasoning: str = Field(..., description="Explanation of routing decision")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional routing metadata (constraints_relaxed, fallback, attempt)"
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Decision timestamp"
     )

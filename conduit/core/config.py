@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, description="API port", ge=1, le=65535)
 
+    # Execution Timeouts
+    llm_timeout_default: float = Field(
+        default=60.0, description="Default LLM call timeout in seconds", ge=1.0, le=300.0
+    )
+    llm_timeout_fast: float = Field(
+        default=30.0, description="Timeout for fast models (mini) in seconds", ge=1.0, le=300.0
+    )
+    llm_timeout_premium: float = Field(
+        default=90.0, description="Timeout for premium models (opus) in seconds", ge=1.0, le=300.0
+    )
+
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
     environment: str = Field(

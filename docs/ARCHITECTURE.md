@@ -40,6 +40,9 @@ This document provides detailed technical architecture for Conduit's ML-powered 
 - `GET /v1/stats` - Analytics and metrics
 - `POST /v1/experiment` - A/B testing setup
 - `GET /v1/models` - List available models
+- `GET /health/live` - Liveness probe (Kubernetes-compatible)
+- `GET /health/ready` - Readiness probe (Kubernetes-compatible)
+- `GET /health/startup` - Startup probe (Kubernetes-compatible)
 
 **Key Files**:
 ```
@@ -106,7 +109,7 @@ class RoutingEngine:
         constraints: QueryConstraints | None = None
     ) -> RoutingDecision:
         """
-        Select optimal model using Thompson Sampling.
+        Select optimal model using Thompson Sampling with fallback strategy.
 
         Args:
             features: Extracted query features
@@ -114,23 +117,74 @@ class RoutingEngine:
 
         Returns:
             RoutingDecision with selected model and metadata
+
+        Fallback Strategy:
+            1. Filter models by constraints
+            2. If no eligible models: relax constraints by 20% and retry
+            3. If still none: use default model (gpt-4o-mini)
+            4. Thompson Sampling on eligible models
+            5. Check circuit breaker for selected model
+            6. If circuit OPEN: exclude and reselect (max 2 retries)
+            7. Return selection with metadata flags
         """
         # Filter models by constraints
         eligible_models = self._filter_by_constraints(
             self.models, constraints
         )
+        constraints_relaxed = False
 
-        # Thompson Sampling selection
-        selected_model = self.bandit.select_model(
-            features=features,
-            models=eligible_models
-        )
+        # Fallback 1: Relax constraints if no eligible models
+        if not eligible_models and constraints:
+            logger.warning(f"No models satisfy constraints, relaxing by 20%")
+            relaxed_constraints = self._relax_constraints(constraints, factor=0.2)
+            eligible_models = self._filter_by_constraints(
+                self.models, relaxed_constraints
+            )
+            constraints_relaxed = True
 
+        # Fallback 2: Use default model if still no matches
+        if not eligible_models:
+            logger.error(f"No models after constraint relaxation, using default")
+            return RoutingDecision(
+                selected_model="gpt-4o-mini",
+                confidence=0.0,
+                features=features,
+                reasoning="Default fallback - no models satisfied constraints",
+                metadata={"constraints_relaxed": True, "fallback": "default"}
+            )
+
+        # Thompson Sampling selection with circuit breaker retry
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            selected_model = self.bandit.select_model(
+                features=features,
+                models=eligible_models
+            )
+
+            # Check circuit breaker
+            if not self._is_circuit_open(selected_model):
+                return RoutingDecision(
+                    selected_model=selected_model,
+                    confidence=self.bandit.get_confidence(selected_model),
+                    features=features,
+                    reasoning=self._explain_selection(selected_model, features),
+                    metadata={"constraints_relaxed": constraints_relaxed, "attempt": attempt}
+                )
+
+            # Circuit open, exclude and retry
+            logger.warning(f"Circuit breaker OPEN for {selected_model}, retrying")
+            eligible_models = [m for m in eligible_models if m != selected_model]
+            if not eligible_models:
+                break
+
+        # Fallback 3: All models circuit broken or exhausted retries
+        logger.error(f"All models failed circuit breaker checks, using default")
         return RoutingDecision(
-            selected_model=selected_model,
-            confidence=self.bandit.get_confidence(selected_model),
+            selected_model="gpt-4o-mini",
+            confidence=0.0,
             features=features,
-            reasoning=self._explain_selection(selected_model, features)
+            reasoning="Default fallback - circuit breakers open",
+            metadata={"fallback": "circuit_breaker"}
         )
 ```
 
@@ -195,23 +249,29 @@ class ContextualBandit:
         self,
         model: str,
         reward: float,
-        query_id: str
+        query_id: str,
+        success_threshold: float = 0.7
     ):
         """
-        Update model's Beta distribution.
+        Update model's Beta distribution using Thompson Sampling.
 
         Args:
             model: Model that was used
             reward: Computed reward (0.0-1.0)
             query_id: For audit trail
+            success_threshold: Reward threshold to count as success (default 0.7)
+
+        Note:
+            Thompson Sampling requires binary success/failure updates.
+            We convert continuous reward to binary outcome using threshold.
         """
         state = self.model_states[model]
 
-        # Bayesian update
-        if reward > 0.5:
-            state.alpha += reward
+        # Bayesian update with binary success/failure
+        if reward >= success_threshold:
+            state.alpha += 1.0  # Count success
         else:
-            state.beta += (1 - reward)
+            state.beta += 1.0  # Count failure
 
         state.total_requests += 1
 
@@ -220,7 +280,7 @@ class ContextualBandit:
 
         logger.info(
             f"Updated {model}: α={state.alpha:.2f}, β={state.beta:.2f}, "
-            f"reward={reward:.2f}, query={query_id}"
+            f"reward={reward:.2f}, success={reward >= success_threshold}, query={query_id}"
         )
 
     def _predict_reward(
@@ -280,28 +340,43 @@ class ModelExecutor:
         model: str,
         prompt: str,
         result_type: Type[BaseModel],
-        query_id: str
+        query_id: str,
+        timeout: float = 60.0
     ) -> Response:
         """
-        Execute LLM call with selected model.
+        Execute LLM call with selected model and timeout.
 
         Args:
             model: Model ID (e.g., "gpt-4o-mini")
             prompt: User query
             result_type: Pydantic model for structured output
             query_id: For tracking
+            timeout: Maximum execution time in seconds (default 60s)
 
         Returns:
             Response with result and metadata
+
+        Raises:
+            ExecutionError: If model call fails or times out
+            asyncio.TimeoutError: If execution exceeds timeout
+
+        Timeout Strategy:
+            - Default: 60s for all models
+            - Fast models (mini): 30s recommended
+            - Premium models (opus): 90s recommended
+            - Configurable per-query via constraints.max_latency
         """
         start_time = time.time()
 
         # Get or create PydanticAI agent
         agent = self._get_agent(model, result_type)
 
-        # Execute with automatic retry
+        # Execute with timeout and automatic retry
         try:
-            result = await agent.run(prompt)
+            result = await asyncio.wait_for(
+                agent.run(prompt),
+                timeout=timeout
+            )
             latency = time.time() - start_time
 
             # Extract cost from interaction
@@ -317,6 +392,13 @@ class ModelExecutor:
                 tokens=result.usage().total_tokens
             )
 
+        except asyncio.TimeoutError:
+            latency = time.time() - start_time
+            logger.error(f"Execution timeout for {model} after {latency:.2f}s (limit: {timeout}s)")
+            raise ExecutionError(
+                f"Model {model} exceeded timeout of {timeout}s",
+                details={"latency": latency, "timeout": timeout}
+            )
         except Exception as e:
             logger.error(f"Execution failed for {model}: {e}")
             raise ExecutionError(f"Model {model} failed: {e}")
@@ -449,13 +531,27 @@ conduit/engines/
 **Database** (`conduit/core/database.py`):
 ```python
 class Database:
-    """Supabase PostgreSQL interface."""
+    """Supabase PostgreSQL interface with transaction management.
+
+    Transaction Boundaries:
+        - Single row inserts: Auto-commit (no explicit transaction)
+        - Feedback loop updates: Transaction (query → routing → response → feedback)
+        - Batch operations: Transaction for consistency
+        - Model state updates: Auto-commit (last-write-wins acceptable)
+        - Circuit breaker state: Auto-commit (eventual consistency)
+
+    Isolation Level: READ COMMITTED (PostgreSQL default)
+    Retry Strategy: Exponential backoff on deadlock/serialization failure
+    """
 
     def __init__(self, connection_string: str):
         self.pool = asyncpg.create_pool(connection_string, max_size=20)
 
     async def save_query(self, query: Query) -> str:
-        """Save query and return ID."""
+        """Save query and return ID.
+
+        Transaction: None (single INSERT, auto-commit)
+        """
         async with self.pool.acquire() as conn:
             query_id = await conn.fetchval(
                 """
@@ -469,8 +565,58 @@ class Database:
             )
         return query_id
 
+    async def save_complete_interaction(
+        self,
+        routing: RoutingDecision,
+        response: Response,
+        feedback: Feedback | None = None
+    ):
+        """Save routing decision, response, and optional feedback atomically.
+
+        Transaction: REQUIRED (ensures consistency of related records)
+        Rollback: On any failure, all records rolled back
+        """
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # Save routing decision
+                await conn.execute(
+                    """
+                    INSERT INTO routing_decisions (id, query_id, selected_model, confidence, features, reasoning, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    routing.id, routing.query_id, routing.selected_model,
+                    routing.confidence, json.dumps(routing.features.model_dump()),
+                    routing.reasoning, routing.created_at
+                )
+
+                # Save response
+                await conn.execute(
+                    """
+                    INSERT INTO responses (id, query_id, model, text, cost, latency, tokens, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """,
+                    response.id, response.query_id, response.model, response.text,
+                    response.cost, response.latency, response.tokens, response.created_at
+                )
+
+                # Save feedback if provided
+                if feedback:
+                    await conn.execute(
+                        """
+                        INSERT INTO feedback (id, response_id, quality_score, user_rating, met_expectations, comments, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """,
+                        feedback.id, feedback.response_id, feedback.quality_score,
+                        feedback.user_rating, feedback.met_expectations,
+                        feedback.comments, feedback.created_at
+                    )
+
     async def update_model_state(self, state: ModelState):
-        """Update model's Beta parameters."""
+        """Update model's Beta parameters.
+
+        Transaction: None (UPSERT with ON CONFLICT, auto-commit)
+        Concurrency: Last-write-wins acceptable for ML updates
+        """
         async with self.pool.acquire() as conn:
             await conn.execute(
                 """
@@ -486,7 +632,10 @@ class Database:
             )
 
     async def get_model_states(self) -> dict[str, ModelState]:
-        """Load all model states."""
+        """Load all model states.
+
+        Transaction: None (single SELECT, read-only)
+        """
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("SELECT * FROM model_states")
 

@@ -288,14 +288,24 @@ class ContextualBandit:
             # Complex queries: prefer premium models
             return 1.0 if "opus" in model or "gpt-4" in model else 0.3
 
-    def update(self, model: str, reward: float):
-        """Update Beta distribution after observing reward."""
+    def update(self, model: str, reward: float, success_threshold: float = 0.7):
+        """Update Beta distribution after observing reward.
+
+        Args:
+            model: Model identifier to update
+            reward: Observed reward (0.0-1.0)
+            success_threshold: Reward threshold to count as success (default 0.7)
+
+        Note:
+            Thompson Sampling requires binary success/failure updates.
+            We convert continuous reward to binary outcome using threshold.
+        """
         params = self.model_params[model]
 
-        if reward > 0.5:  # Success threshold
-            params["alpha"] += reward
+        if reward >= success_threshold:
+            params["alpha"] += 1.0  # Count success
         else:
-            params["beta"] += (1 - reward)
+            params["beta"] += 1.0  # Count failure
 ```
 
 ### Reward Function
@@ -416,6 +426,44 @@ CREATE TABLE model_states (
 );
 ```
 
+### Transaction Boundaries
+
+**Isolation Level**: READ COMMITTED (PostgreSQL default)
+
+**Transaction Policies**:
+
+1. **Single Row Operations** (Auto-commit):
+   - `INSERT INTO queries` - Single query save
+   - `SELECT * FROM model_states` - Model state reads
+   - No explicit transaction needed
+
+2. **Complete Interaction** (Transactional):
+   - Atomic write of: routing_decision + response + feedback (optional)
+   - All-or-nothing guarantee for related records
+   - Rollback on any failure to maintain referential integrity
+   ```sql
+   BEGIN;
+     INSERT INTO routing_decisions (...);
+     INSERT INTO responses (...);
+     INSERT INTO feedback (...);  -- Optional
+   COMMIT;
+   ```
+
+3. **Model State Updates** (Auto-commit):
+   - `UPSERT INTO model_states` with ON CONFLICT
+   - Last-write-wins acceptable (ML updates are idempotent)
+   - No transaction needed (eventual consistency)
+
+4. **Circuit Breaker State** (Auto-commit):
+   - In-memory state with periodic database sync
+   - Eventual consistency acceptable
+   - No strong ACID requirements
+
+**Concurrency Control**:
+- Optimistic locking not required (no user-facing conflicts)
+- Database-level UNIQUE constraints prevent duplicates
+- Retry logic handles transient deadlocks (exponential backoff)
+
 ---
 
 ## API Design
@@ -488,6 +536,96 @@ Response:
 }
 ```
 
+**GET /health/live**
+```json
+Response: 200 OK
+{
+    "status": "healthy",
+    "timestamp": "2025-11-18T12:00:00Z"
+}
+
+Response: 503 Service Unavailable
+{
+    "status": "unhealthy",
+    "timestamp": "2025-11-18T12:00:00Z",
+    "error": "Database connection failed"
+}
+```
+
+**GET /health/ready**
+```json
+Response: 200 OK
+{
+    "status": "ready",
+    "timestamp": "2025-11-18T12:00:00Z",
+    "checks": {
+        "database": "ok",
+        "redis": "ok",
+        "model_states_loaded": true,
+        "llm_providers": {
+            "openai": "ok",
+            "anthropic": "ok"
+        }
+    }
+}
+
+Response: 503 Service Unavailable
+{
+    "status": "not_ready",
+    "timestamp": "2025-11-18T12:00:00Z",
+    "checks": {
+        "database": "ok",
+        "redis": "degraded",
+        "model_states_loaded": false,
+        "llm_providers": {
+            "openai": "ok",
+            "anthropic": "unavailable"
+        }
+    }
+}
+```
+
+**GET /health/startup**
+```json
+Response: 200 OK
+{
+    "status": "started",
+    "timestamp": "2025-11-18T12:00:00Z",
+    "startup_duration_ms": 1234
+}
+
+Response: 503 Service Unavailable
+{
+    "status": "starting",
+    "timestamp": "2025-11-18T12:00:00Z",
+    "startup_duration_ms": 500,
+    "pending": ["loading_model_states", "initializing_redis"]
+}
+```
+
+### Health Check Semantics
+
+**Liveness Probe** (`/health/live`):
+- Purpose: Detect if process is alive
+- Checks: Minimal (process responding)
+- Failure action: Restart container/process
+- Timeout: 1s
+- Frequency: Every 10s
+
+**Readiness Probe** (`/health/ready`):
+- Purpose: Detect if ready to serve traffic
+- Checks: Database connectivity, Redis availability, model states loaded, LLM provider API keys valid
+- Failure action: Remove from load balancer
+- Timeout: 5s
+- Frequency: Every 5s
+
+**Startup Probe** (`/health/startup`):
+- Purpose: Detect when app has fully initialized
+- Checks: All initialization tasks complete
+- Failure action: Mark deployment failed
+- Timeout: 30s
+- Frequency: Every 5s during startup
+
 ---
 
 ## Implementation Phases
@@ -543,6 +681,18 @@ Response:
 - **Throughput**: 100+ queries/second
 - **Database**: <50ms p95 query time
 
+### Timeouts
+
+- **Default LLM Timeout**: 60s (configurable via `LLM_TIMEOUT_DEFAULT`)
+- **Fast Models (mini)**: 30s recommended (configurable via `LLM_TIMEOUT_FAST`)
+- **Premium Models (opus)**: 90s recommended (configurable via `LLM_TIMEOUT_PREMIUM`)
+- **Per-Query Override**: Timeout can be reduced via `QueryConstraints.max_latency`
+- **Timeout Behavior**:
+  - LLM call wrapped in `asyncio.wait_for()`
+  - On timeout: ExecutionError raised with latency details
+  - Timeout event logged for monitoring
+  - Falls back to default model (see Reliability section)
+
 ### Scalability
 
 - **Concurrent Users**: 1000+
@@ -554,8 +704,38 @@ Response:
 
 - **Uptime**: 99.9% (3 nines)
 - **Error Rate**: <0.1%
-- **Failover**: Automatic fallback to default model
 - **Data Durability**: Supabase handles backup/recovery
+
+### Fallback Strategies
+
+**Constraint Violation Handling**:
+- If no models satisfy QueryConstraints (max_cost, max_latency, min_quality):
+  1. Relax constraints by 20% and retry model selection
+  2. If still no match: Use cheapest available model (gpt-4o-mini)
+  3. Log constraint violation event for monitoring
+  4. Return response with metadata flag: `constraints_relaxed: true`
+
+**Model Failure Handling**:
+- Circuit breaker pattern (5 failures → OPEN for 60s)
+- On model failure or timeout:
+  1. Check circuit breaker state for failed model
+  2. If OPEN: Exclude from selection pool
+  3. Retry with next-best model from Thompson Sampling
+  4. Max 2 retries before returning error to user
+  5. Log failure chain for debugging
+
+**Default Model Fallback**:
+- Ultimate fallback: `gpt-4o-mini` (fast, cheap, reliable)
+- Used when:
+  - All models fail circuit breaker checks
+  - All constraint relaxations exhausted
+  - System in degraded mode (database unreachable)
+- Default model bypass routing logic (direct execution)
+
+**Graceful Degradation**:
+- If database unreachable: Use in-memory model states (ephemeral)
+- If embedding service fails: Use rule-based routing (complexity heuristic)
+- If all LLM providers fail: Return 503 Service Unavailable with retry-after header
 
 ### Security
 
