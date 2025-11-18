@@ -96,16 +96,26 @@ class TestQueryFeatures:
         assert features.domain == "code"
         assert features.domain_confidence == 0.9
 
-    def test_invalid_embedding_length(self):
-        """Test embedding must be exactly 384 dimensions."""
-        with pytest.raises(ValidationError):
-            QueryFeatures(
-                embedding=[0.1] * 100,  # Wrong length
-                token_count=10,
-                complexity_score=0.5,
-                domain="code",
-                domain_confidence=0.9,
-            )
+    def test_variable_embedding_length(self):
+        """Test embedding accepts variable dimensions for different models."""
+        # Should work with different embedding dimensions
+        features_small = QueryFeatures(
+            embedding=[0.1] * 100,  # Small embedding (e.g., distilbert)
+            token_count=10,
+            complexity_score=0.5,
+            domain="code",
+            domain_confidence=0.9,
+        )
+        assert len(features_small.embedding) == 100
+
+        features_large = QueryFeatures(
+            embedding=[0.1] * 768,  # Large embedding (e.g., BERT)
+            token_count=10,
+            complexity_score=0.5,
+            domain="code",
+            domain_confidence=0.9,
+        )
+        assert len(features_large.embedding) == 768
 
     def test_complexity_score_range(self):
         """Test complexity_score must be 0.0-1.0."""

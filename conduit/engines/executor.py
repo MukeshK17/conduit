@@ -63,16 +63,25 @@ class ModelExecutor:
             latency = time.time() - start_time
 
             # Extract cost from interaction
-            cost = self._compute_cost(result.usage(), model)
+            usage = result.usage()
+            cost = self._compute_cost(usage, model)
+
+            # Extract total tokens (handle both object and dict)
+            if hasattr(usage, "total_tokens"):
+                total_tokens = usage.total_tokens
+            elif isinstance(usage, dict):
+                total_tokens = usage.get("total_tokens", 0)
+            else:
+                total_tokens = 0
 
             return Response(
                 id=str(uuid4()),
                 query_id=query_id,
                 model=model,
-                text=result.data.model_dump_json(),
+                text=result.data().model_dump_json(),
                 cost=cost,
                 latency=latency,
-                tokens=result.usage().total_tokens,
+                tokens=total_tokens,
             )
 
         except asyncio.TimeoutError as e:
@@ -101,16 +110,16 @@ class ModelExecutor:
         cache_key = f"{model}_{result_type.__name__}"
 
         if cache_key not in self.clients:
-            self.clients[cache_key] = Agent(model=model, output_type=result_type)
+            self.clients[cache_key] = Agent(model=model, result_type=result_type)
             logger.debug(f"Created new agent for {cache_key}")
 
         return self.clients[cache_key]
 
-    def _compute_cost(self, usage: dict[str, Any], model: str) -> float:
+    def _compute_cost(self, usage: Any, model: str) -> float:
         """Compute cost based on token usage and model pricing.
 
         Args:
-            usage: Token usage from PydanticAI
+            usage: Token usage from PydanticAI (Usage object or dict)
             model: Model identifier
 
         Returns:
@@ -132,8 +141,34 @@ class ModelExecutor:
             model, {"input": 0.001, "output": 0.002}  # Default pricing
         )
 
-        input_tokens = usage.get("request_tokens", 0)
-        output_tokens = usage.get("response_tokens", 0)
+        # Handle Usage object (has attributes) or dict (has .get method)
+        if hasattr(usage, "request_tokens") or hasattr(usage, "input_tokens"):
+            # Usage object with attributes (check both naming conventions)
+            input_tokens = getattr(usage, "request_tokens", 0) or getattr(
+                usage, "input_tokens", 0
+            )
+            output_tokens = getattr(usage, "response_tokens", 0) or getattr(
+                usage, "output_tokens", 0
+            )
+        elif isinstance(usage, dict):
+            # Dict with keys
+            input_tokens = usage.get("request_tokens", 0) or usage.get("input_tokens", 0)
+            output_tokens = usage.get("response_tokens", 0) or usage.get(
+                "output_tokens", 0
+            )
+        else:
+            # Fallback: try to convert to dict
+            try:
+                usage_dict = usage.model_dump() if hasattr(usage, "model_dump") else {}
+                input_tokens = usage_dict.get("request_tokens", 0) or usage_dict.get(
+                    "input_tokens", 0
+                )
+                output_tokens = usage_dict.get("response_tokens", 0) or usage_dict.get(
+                    "output_tokens", 0
+                )
+            except Exception:
+                logger.warning(f"Could not extract tokens from usage object: {usage}")
+                return 0.0
 
         cost = (input_tokens / 1000) * model_pricing["input"] + (
             output_tokens / 1000
