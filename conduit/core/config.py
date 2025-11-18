@@ -4,7 +4,7 @@ This module provides centralized configuration loading from environment
 variables with validation and type safety.
 """
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,12 +74,22 @@ class Settings(BaseSettings):
         default="development", description="Environment (development, production)"
     )
 
-    @field_validator("reward_weight_quality", "reward_weight_cost", "reward_weight_latency")
-    @classmethod
-    def validate_reward_weights_sum(cls, v: float, info) -> float:
-        """Validate reward weights sum to 1.0."""
-        # This is a simplified check - full validation would need all three values
-        return v
+    @model_validator(mode="after")
+    def validate_reward_weights_sum(self) -> "Settings":
+        """Validate reward weights sum to approximately 1.0."""
+        total = (
+            self.reward_weight_quality
+            + self.reward_weight_cost
+            + self.reward_weight_latency
+        )
+        if abs(total - 1.0) > 0.01:  # Allow small floating point variance
+            raise ValueError(
+                f"Reward weights must sum to 1.0, got {total:.3f} "
+                f"(quality={self.reward_weight_quality}, "
+                f"cost={self.reward_weight_cost}, "
+                f"latency={self.reward_weight_latency})"
+            )
+        return self
 
     @property
     def reward_weights(self) -> dict[str, float]:

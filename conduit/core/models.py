@@ -4,7 +4,7 @@ This module defines Pydantic models for queries, routing decisions,
 responses, feedback, and ML model state.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -41,7 +41,7 @@ class Query(BaseModel):
         None, description="Routing constraints"
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Query creation timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Query creation timestamp"
     )
 
     @field_validator("text")
@@ -81,7 +81,7 @@ class RoutingDecision(BaseModel):
     features: QueryFeatures = Field(..., description="Extracted query features")
     reasoning: str = Field(..., description="Explanation of routing decision")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Decision timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Decision timestamp"
     )
 
 
@@ -98,7 +98,7 @@ class Response(BaseModel):
     latency: float = Field(..., description="Latency in seconds", ge=0.0)
     tokens: int = Field(..., description="Total tokens used", ge=0)
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Response timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Response timestamp"
     )
 
 
@@ -120,7 +120,7 @@ class Feedback(BaseModel):
     )
     comments: str | None = Field(None, description="Optional user comments")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Feedback timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Feedback timestamp"
     )
 
 
@@ -136,7 +136,7 @@ class ModelState(BaseModel):
         default=0.0, description="Average quality score", ge=0.0, le=1.0
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Last update timestamp"
     )
 
     @property
