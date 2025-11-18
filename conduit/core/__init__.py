@@ -1,6 +1,7 @@
 """Core infrastructure for Conduit routing system."""
 
 from conduit.core.config import Settings, settings
+from conduit.core.database import Database
 from conduit.core.exceptions import (
     AnalysisError,
     CircuitBreakerOpenError,
@@ -27,6 +28,8 @@ __all__ = [
     # Config
     "Settings",
     "settings",
+    # Database
+    "Database",
     # Exceptions
     "ConduitError",
     "AnalysisError",

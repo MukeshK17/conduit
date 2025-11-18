@@ -1,0 +1,143 @@
+"""LLM execution via PydanticAI with timeout and error handling."""
+
+import asyncio
+import logging
+import time
+from typing import Type
+from uuid import uuid4
+
+from pydantic import BaseModel
+from pydantic_ai import Agent
+
+from conduit.core.exceptions import ExecutionError
+from conduit.core.models import Response
+
+logger = logging.getLogger(__name__)
+
+
+class ModelExecutor:
+    """Execute LLM calls via PydanticAI."""
+
+    def __init__(self):
+        """Initialize executor with agent cache."""
+        self.clients: dict[str, Agent] = {}
+
+    async def execute(
+        self,
+        model: str,
+        prompt: str,
+        result_type: Type[BaseModel],
+        query_id: str,
+        timeout: float = 60.0,
+    ) -> Response:
+        """Execute LLM call with selected model and timeout.
+
+        Args:
+            model: Model ID (e.g., "gpt-4o-mini")
+            prompt: User query
+            result_type: Pydantic model for structured output
+            query_id: For tracking
+            timeout: Maximum execution time in seconds (default 60s)
+
+        Returns:
+            Response with result and metadata
+
+        Raises:
+            ExecutionError: If model call fails or times out
+            asyncio.TimeoutError: If execution exceeds timeout
+
+        Timeout Strategy:
+            - Default: 60s for all models
+            - Fast models (mini): 30s recommended
+            - Premium models (opus): 90s recommended
+            - Configurable per-query via constraints.max_latency
+        """
+        start_time = time.time()
+
+        # Get or create PydanticAI agent
+        agent = self._get_agent(model, result_type)
+
+        # Execute with timeout and automatic retry
+        try:
+            result = await asyncio.wait_for(agent.run(prompt), timeout=timeout)
+            latency = time.time() - start_time
+
+            # Extract cost from interaction
+            cost = self._compute_cost(result.usage(), model)
+
+            return Response(
+                id=str(uuid4()),
+                query_id=query_id,
+                model=model,
+                text=result.data.model_dump_json(),
+                cost=cost,
+                latency=latency,
+                tokens=result.usage().total_tokens,
+            )
+
+        except asyncio.TimeoutError:
+            latency = time.time() - start_time
+            logger.error(
+                f"Execution timeout for {model} after {latency:.2f}s (limit: {timeout}s)"
+            )
+            raise ExecutionError(
+                f"Model {model} exceeded timeout of {timeout}s",
+                details={"latency": latency, "timeout": timeout},
+            )
+        except Exception as e:
+            logger.error(f"Execution failed for {model}: {e}")
+            raise ExecutionError(f"Model {model} failed: {e}") from e
+
+    def _get_agent(self, model: str, result_type: Type[BaseModel]) -> Agent:
+        """Get cached or create new PydanticAI agent.
+
+        Args:
+            model: Model identifier
+            result_type: Pydantic model for structured output
+
+        Returns:
+            Configured PydanticAI agent
+        """
+        cache_key = f"{model}_{result_type.__name__}"
+
+        if cache_key not in self.clients:
+            self.clients[cache_key] = Agent(model=model, result_type=result_type)
+            logger.debug(f"Created new agent for {cache_key}")
+
+        return self.clients[cache_key]
+
+    def _compute_cost(self, usage: dict, model: str) -> float:
+        """Compute cost based on token usage and model pricing.
+
+        Args:
+            usage: Token usage from PydanticAI
+            model: Model identifier
+
+        Returns:
+            Cost in dollars
+
+        Note:
+            Phase 1 uses approximate pricing.
+            Phase 2+ will use actual provider pricing APIs.
+        """
+        # Approximate pricing (per 1K tokens)
+        pricing = {
+            "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
+            "gpt-4o": {"input": 0.0025, "output": 0.01},
+            "claude-sonnet-4": {"input": 0.003, "output": 0.015},
+            "claude-opus-4": {"input": 0.015, "output": 0.075},
+        }
+
+        model_pricing = pricing.get(
+            model, {"input": 0.001, "output": 0.002}  # Default pricing
+        )
+
+        input_tokens = usage.get("request_tokens", 0)
+        output_tokens = usage.get("response_tokens", 0)
+
+        cost = (
+            (input_tokens / 1000) * model_pricing["input"]
+            + (output_tokens / 1000) * model_pricing["output"]
+        )
+
+        return cost
