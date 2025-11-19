@@ -495,8 +495,10 @@ else:
 ```
 
 **Expected Results**:
-- Cold start period: 50-100 queries (vs 200 without)
-- Better initial routing (fewer mistakes)
+- Cold start period: 2,500-5,000 queries (vs 5,000-10,000 without)
+- Convergence: 7,500-12,000 queries (vs 15,000-20,000 without)
+- 30-50% reduction in learning phase cost
+- Better initial routing quality (fewer expensive mistakes)
 - Smooth transition to learned behavior
 - Minimal added complexity
 
@@ -590,30 +592,43 @@ router = Router(
 
 ```python
 cold_start_metrics = {
-    # Learning speed
-    "queries_to_convergence": 75,  # How many queries until stable?
+    # Learning speed (REVISED - realistic expectations)
+    "queries_to_basic_patterns": 5000,   # Initial patterns established
+    "queries_to_convergence": 12000,     # Fully converged (with cold start solutions)
+    "queries_to_convergence_baseline": 17500,  # Without cold start solutions
 
-    # Quality during cold start
-    "cold_start_error_rate": 0.08,  # Errors in first 100 queries
-    "post_cold_error_rate": 0.04,   # Errors after 100 queries
+    # Quality during phases
+    "phase_1_error_rate": 0.12,      # Errors in first 5k queries
+    "phase_2_error_rate": 0.08,      # Errors queries 5k-15k
+    "phase_3_error_rate": 0.06,      # Errors after convergence
 
-    # Cost efficiency
-    "cold_start_cost_per_query": 0.0035,  # First 100 queries
-    "post_cold_cost_per_query": 0.0022,   # After 100 queries
+    # Cost efficiency by phase
+    "phase_1_cost_per_1k": 2.30,     # First 5k queries (learning)
+    "phase_2_cost_per_1k": 1.90,     # Queries 5k-15k (refining)
+    "phase_3_cost_per_1k": 1.60,     # Post-convergence (optimal)
 
     # User experience
-    "cold_start_satisfaction": 0.75,  # User ratings early
-    "post_cold_satisfaction": 0.92    # User ratings later
+    "phase_1_satisfaction": 0.75,    # User ratings during cold start
+    "phase_2_satisfaction": 0.85,    # User ratings during learning
+    "phase_3_satisfaction": 0.92     # User ratings post-convergence
 }
 ```
 
-### Success Criteria
+### Success Criteria (Revised)
 
 **Good Cold Start Solution**:
-- Converges in < 100 queries
+- Convergence in < 12,000 queries (vs 15,000-20,000 without)
+- Error rate < 12% during cold start phase (0-5k queries)
+- Error rate < 8% during learning phase (5k-15k queries)
+- Cost within 30% of post-convergence optimal during cold start
+- Cost within 15% of optimal during learning phase
+- User satisfaction > 75% during cold start
+
+**Excellent Cold Start Solution**:
+- Convergence in < 10,000 queries
 - Error rate < 10% during cold start
-- Cost within 20% of post-cold-start optimal
-- User satisfaction > 70% during cold start
+- Cost within 25% of optimal during cold start
+- Demonstrable improvement curve (visible progress)
 
 ## References
 

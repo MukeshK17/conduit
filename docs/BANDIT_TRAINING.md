@@ -102,56 +102,84 @@ models = {
 
 ## The Learning Curve
 
-### Phase 1: Cold Start (Queries 1-100)
+### Phase 1: Cold Start (Queries 1-5,000)
 
 **Characteristics**:
-- High exploration (tries everything randomly)
-- Inconsistent routing decisions
-- Learning basic model capabilities
-- High variance in performance
+- High exploration (tries everything, gathering initial data)
+- Inconsistent routing decisions (high variance)
+- Learning basic model capabilities and failure modes
+- Establishing fundamental routing patterns
+- Each model tried extensively across domains
 
-**User Experience**: Some suboptimal routing, but gathering crucial data
+**User Experience**: Noticeable suboptimal routing, but rapid learning
 
 **Example**:
 ```
-Query 1:  "Debug this code" → gpt-4o-mini (random) → Success ✓
-Query 2:  "What is 2+2?" → gpt-4o (random, expensive!) → Success ✓
-Query 3:  "Write a poem" → claude-sonnet-4 (random) → Success ✓
-Query 50: Pattern emerging, but still exploring heavily
+Query 1:     "Debug this code" → gpt-4o-mini (random) → Failure ✗
+Query 50:    "Debug this code" → gpt-4o (exploring) → Success ✓
+Query 500:   "What is 2+2?" → gpt-4o (still expensive!) → Success ✓
+Query 1000:  "What is 2+2?" → gpt-4o-mini (learning!) → Success ✓
+Query 5000:  Basic patterns established, but still refining
 ```
 
-### Phase 2: Learning (Queries 100-500)
+**Distribution Evolution** (illustrative):
+```python
+Query 1:    {"gpt-4o-mini": 0.25, "gpt-4o": 0.25, "claude": 0.50}  # Random
+Query 1000: {"gpt-4o-mini": 0.40, "gpt-4o": 0.35, "claude": 0.25}  # Patterns emerging
+Query 5000: {"gpt-4o-mini": 0.48, "gpt-4o": 0.32, "claude": 0.20}  # Close to optimal
+```
+
+### Phase 2: Refinement (Queries 5,001-15,000)
 
 **Characteristics**:
-- Moderate exploration (balances known-good with trying new)
-- Patterns emerge (complex → premium, simple → budget)
-- Routing becomes smarter
-- Reduced variance
+- Moderate exploration (balancing exploitation with edge case discovery)
+- Domain-specific patterns emerging (code vs FAQ vs creative)
+- Confidence growing (distributions stabilizing)
+- Approaching convergence
+- Refining boundaries between simple/medium/complex
 
-**User Experience**: Mostly good routing, occasional exploration
+**User Experience**: Mostly good routing, improving steadily
 
 **Example**:
 ```
-Query 150: "Debug this code" → gpt-4o (learned: code is hard) ✓
-Query 200: "What is 2+2?" → gpt-4o-mini (learned: simple is cheap) ✓
-Query 300: Still exploring edge cases, refining boundaries
+Query 6000:  "Debug React hooks" → gpt-4o (learned: code + complex) ✓
+Query 8000:  "What's your refund policy?" → gpt-4o-mini (learned: FAQ) ✓
+Query 10000: "Write technical blog post" → claude-sonnet-4 (learned: creative) ✓
+Query 15000: Domain patterns well-established, convergence approaching
 ```
 
-### Phase 3: Converged (Queries 500-1000+)
+**Distribution Evolution**:
+```python
+Query 5000:  {"gpt-4o-mini": 0.48, "gpt-4o": 0.32, "claude": 0.20}
+Query 10000: {"gpt-4o-mini": 0.50, "gpt-4o": 0.30, "claude": 0.20}  # Stabilizing
+Query 15000: {"gpt-4o-mini": 0.50, "gpt-4o": 0.30, "claude": 0.20}  # Near convergence
+```
+
+### Phase 3: Converged (Queries 15,001-35,000+)
 
 **Characteristics**:
-- Low exploration (mostly exploit learned patterns)
-- Consistent routing decisions
+- Low exploration (95% exploitation, 5% exploration)
+- Consistent routing decisions (low variance)
 - High confidence in model capabilities
-- Minimal variance
+- Domain expertise established
+- Distributions stable over time
 
-**User Experience**: Optimal routing, rare exploration
+**User Experience**: Optimal routing for this specific workload
 
 **Example**:
 ```
-Query 600: "Debug this code" → gpt-4o (high confidence) ✓
-Query 800: "What is 2+2?" → gpt-4o-mini (high confidence) ✓
-Query 1000: Routing is now tuned to YOUR specific workload
+Query 20000: "Debug this code" → gpt-4o (high confidence) ✓
+Query 25000: "What is 2+2?" → gpt-4o-mini (high confidence) ✓
+Query 35000: Routing fully tuned to YOUR specific workload
+```
+
+**Distribution Stability**:
+```python
+Query 15000: {"gpt-4o-mini": 0.50, "gpt-4o": 0.30, "claude": 0.20}
+Query 25000: {"gpt-4o-mini": 0.50, "gpt-4o": 0.30, "claude": 0.20}  # Stable
+Query 35000: {"gpt-4o-mini": 0.50, "gpt-4o": 0.30, "claude": 0.20}  # Converged
+
+# Variance over last 20k queries: < 2% (proof of convergence)
 ```
 
 ## Training Data = Feedback Signals
@@ -294,17 +322,35 @@ if variance < threshold:
 
 ### Expected Convergence Timeline
 
-Based on typical workloads:
+**Realistic Timeline for Production Workloads**:
 
-- **Query 100**: Initial patterns visible, still exploring heavily
-- **Query 200**: Moderate confidence, reasonable routing decisions
-- **Query 500**: High confidence, mostly stable routing
-- **Query 1000**: Converged, minimal changes to distributions
+- **Query 1-1,000**: Initial exploration, random to semi-random routing
+- **Query 1,000-5,000**: Basic patterns emerging, high variance
+- **Query 5,000-10,000**: Domain patterns visible, approaching convergence
+- **Query 10,000-15,000**: Near convergence, distributions stabilizing
+- **Query 15,000+**: Converged, < 2% variance over time
 
-**Factors affecting convergence speed**:
-- **Workload diversity**: More diverse = slower convergence
-- **Feedback quality**: Better signals = faster convergence
-- **Model differences**: Bigger capability gaps = faster convergence
+**With Cold Start Solutions** (informed priors + heuristics):
+- Can reduce cold start period by 30-50%
+- Convergence at 7,500-12,000 queries (instead of 15,000)
+- Better initial routing quality
+
+**Without Cold Start Solutions**:
+- Full random exploration initially
+- Convergence at 15,000-20,000 queries
+- More costly learning phase
+
+**Factors Affecting Convergence Speed**:
+- **Workload diversity**: More diverse = slower convergence (4+ domains = 15k queries)
+- **Feedback quality**: Better signals = faster convergence (implicit feedback helps!)
+- **Model differences**: Bigger capability gaps = faster convergence (budget vs premium clear)
+- **Number of models**: More models = slower convergence (4 models = 15k, 2 models = 8k)
+- **Domain count**: More domains = slower convergence (need examples in each)
+
+**Proof of Convergence**:
+Measure variance in model distribution over rolling 1000-query windows:
+- Converging: Variance decreasing over time
+- Converged: Variance < 2% for 5,000+ consecutive queries
 
 ## Implementation Details
 
