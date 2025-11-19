@@ -29,7 +29,7 @@ class MockUsage:
 
 
 class MockAgentResult:
-    """Mock PydanticAI Agent result."""
+    """Mock PydanticAI Agent result (v1.20+ API)."""
 
     def __init__(
         self,
@@ -37,12 +37,9 @@ class MockAgentResult:
         usage: MockUsage,
         text: str = "Test response",
     ):
-        self._data = data
+        self.output = data  # v1.20+ uses .output instead of .data()
         self._usage = usage
         self._text = text
-
-    def data(self) -> BaseModel:
-        return self._data
 
     def usage(self) -> MockUsage:
         return self._usage
@@ -166,7 +163,7 @@ class TestModelExecutor:
         # Create mock result with dict-based usage
         test_data = TestResult(answer="Answer", confidence=0.9)
         mock_result = MagicMock()
-        mock_result.data.return_value = test_data
+        mock_result.output = test_data  # v1.20+ uses .output attribute
         mock_result.output_text.return_value = '{"answer": "Answer", "confidence": 0.9}'
 
         # Mock usage() to return a dict
@@ -249,7 +246,7 @@ class TestModelExecutor:
                 self.total_tokens = 750
 
         mock_result = MagicMock()
-        mock_result.data.return_value = test_data
+        mock_result.output = test_data  # v1.20+ uses .output attribute
         mock_result.output_text.return_value = '{"answer": "Answer", "confidence": 0.9}'
         mock_result.usage.return_value = AlternativeUsage()
 
@@ -279,7 +276,7 @@ class TestModelExecutor:
 
         # Mock usage object with no recognizable fields
         mock_result = MagicMock()
-        mock_result.data.return_value = test_data
+        mock_result.output = test_data  # v1.20+ uses .output attribute
         mock_result.output_text.return_value = '{"answer": "Answer", "confidence": 0.9}'
         mock_result.usage.return_value = "invalid usage format"
 
@@ -311,7 +308,7 @@ class TestModelExecutor:
                 raise RuntimeError("model_dump failed")
 
         mock_result = MagicMock()
-        mock_result.data.return_value = test_data
+        mock_result.output = test_data  # v1.20+ uses .output attribute
         mock_result.output_text.return_value = '{"answer": "Answer", "confidence": 0.9}'
         mock_result.usage.return_value = BrokenUsage()
 
