@@ -33,7 +33,7 @@ def create_routes(service: RoutingService) -> APIRouter:
     api_router = APIRouter()
 
     # POST /v1/complete - Route and execute LLM query
-    @api_router.post(  # type: ignore[misc]
+    @api_router.post(
         "/v1/complete",
         response_model=CompleteResponse,
         status_code=status.HTTP_200_OK,
@@ -98,7 +98,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             ) from e
 
     # POST /v1/feedback - Submit quality feedback
-    @api_router.post(  # type: ignore[misc]
+    @api_router.post(
         "/v1/feedback",
         response_model=FeedbackResponse,
         status_code=status.HTTP_200_OK,
@@ -135,7 +135,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             ) from e
 
     # GET /v1/stats - Analytics and metrics
-    @api_router.get(  # type: ignore[misc]
+    @api_router.get(
         "/v1/stats",
         response_model=StatsResponse,
         status_code=status.HTTP_200_OK,
@@ -153,7 +153,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             ) from e
 
     # GET /v1/models - List available models
-    @api_router.get(  # type: ignore[misc]
+    @api_router.get(
         "/v1/models",
         response_model=ModelsResponse,
         status_code=status.HTTP_200_OK,
@@ -174,7 +174,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             ) from e
 
     # GET /health/live - Liveness probe
-    @api_router.get(  # type: ignore[misc]
+    @api_router.get(
         "/health/live",
         response_model=HealthResponse,
         status_code=status.HTTP_200_OK,
@@ -189,7 +189,7 @@ def create_routes(service: RoutingService) -> APIRouter:
         )
 
     # GET /health/ready - Readiness probe
-    @api_router.get(  # type: ignore[misc]
+    @api_router.get(
         "/health/ready",
         response_model=HealthResponse,
         status_code=status.HTTP_200_OK,
@@ -205,7 +205,7 @@ def create_routes(service: RoutingService) -> APIRouter:
         )
 
     # GET /health/startup - Startup probe
-    @api_router.get(  # type: ignore[misc]
+    @api_router.get(
         "/health/startup",
         response_model=HealthResponse,
         status_code=status.HTTP_200_OK,

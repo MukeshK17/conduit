@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
     setup_middleware(app)
 
     # Global exception handler
-    @app.exception_handler(Exception)  # type: ignore[misc]
+    @app.exception_handler(Exception)
     async def global_exception_handler(request: object, exc: Exception) -> JSONResponse:
         """Handle unhandled exceptions."""
         logger.exception(f"Unhandled exception: {exc}")
