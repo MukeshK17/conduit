@@ -110,8 +110,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         selected_id = max(samples, key=samples.get)  # type: ignore
         selected_arm = self.arms[selected_id]
 
-        # Track selection
-        self.arm_pulls[selected_id] += 1
+        # Track total queries only (arm_pulls incremented by update())
         self.total_queries += 1
 
         return selected_arm
@@ -145,6 +144,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         # This gives us: α += q, β += (1-q)
         self.alpha[model_id] += quality
         self.beta[model_id] += 1.0 - quality
+        self.arm_pulls[model_id] += 1  # Always increment for feedback count
 
         # Track successes (quality above threshold)
         if quality >= 0.85:  # Quality threshold

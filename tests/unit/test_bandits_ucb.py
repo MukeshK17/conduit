@@ -65,8 +65,8 @@ class TestUCB1Bandit:
 
         # Check initial state
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
-            assert bandit.counts[model_id] == 0
-            assert bandit.values[model_id] == 0.0
+            assert bandit.arm_pulls[model_id] == 0
+            assert bandit.mean_reward[model_id] == 0.0
 
     def test_initialization_custom_c(self, test_arms):
         """Test UCB1 bandit with custom exploration parameter."""
@@ -117,8 +117,8 @@ class TestUCB1Bandit:
         await bandit.update(feedback, test_features)
 
         # Mean value should be updated
-        assert bandit.values[arm.model_id] == 0.9
-        assert bandit.counts[arm.model_id] == 1
+        assert bandit.mean_reward[arm.model_id] == 0.9
+        assert bandit.arm_pulls[arm.model_id] == 1
 
     @pytest.mark.asyncio
     async def test_running_average(self, test_arms, test_features):
@@ -135,7 +135,7 @@ class TestUCB1Bandit:
             latency=1.0,
         )
         await bandit.update(feedback1, test_features)
-        assert bandit.values[arm.model_id] == 0.9
+        assert bandit.mean_reward[arm.model_id] == 0.9
 
         # Second update: quality = 0.7
         feedback2 = BanditFeedback(
@@ -147,8 +147,8 @@ class TestUCB1Bandit:
         await bandit.update(feedback2, test_features)
 
         # Mean should be (0.9 + 0.7) / 2 = 0.8
-        assert bandit.values[arm.model_id] == 0.8
-        assert bandit.counts[arm.model_id] == 2
+        assert bandit.mean_reward[arm.model_id] == 0.8
+        assert bandit.arm_pulls[arm.model_id] == 2
 
     @pytest.mark.asyncio
     async def test_ucb_calculation(self, test_arms, test_features):
@@ -167,8 +167,8 @@ class TestUCB1Bandit:
 
         # Now in exploitation phase, calculate expected UCB
         model_id = test_arms[0].model_id
-        count = bandit.counts[model_id]
-        value = bandit.values[model_id]
+        count = bandit.arm_pulls[model_id]
+        value = bandit.mean_reward[model_id]
         total = bandit.total_queries
 
         expected_ucb = value + bandit.c * math.sqrt(math.log(total) / count)
@@ -202,8 +202,8 @@ class TestUCB1Bandit:
             await bandit.update(feedback, test_features)
 
         # After learning, gpt-4o should have highest mean value
-        assert bandit.values["gpt-4o"] > bandit.values["gpt-4o-mini"]
-        assert bandit.values["gpt-4o"] > bandit.values["claude-3-haiku"]
+        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["gpt-4o-mini"]
+        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["claude-3-haiku"]
 
     @pytest.mark.asyncio
     async def test_exploration_parameter_effect(self, test_arms, test_features):
@@ -270,8 +270,8 @@ class TestUCB1Bandit:
         # Check all restored to initial state
         assert bandit.total_queries == 0
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
-            assert bandit.counts[model_id] == 0
-            assert bandit.values[model_id] == 0.0
+            assert bandit.arm_pulls[model_id] == 0
+            assert bandit.mean_reward[model_id] == 0.0
 
     @pytest.mark.asyncio
     async def test_no_divide_by_zero(self, test_arms, test_features):

@@ -65,7 +65,15 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>> # Decaying epsilon (start 20%, decay to 1% over time)
             >>> bandit2 = EpsilonGreedyBandit(arms, epsilon=0.2, decay=0.999, min_epsilon=0.01)
         """
-        super().__init__(name=f"epsilon_greedy_eps{epsilon}", arms=arms)
+        # Validate epsilon parameter
+        if not 0.0 <= epsilon <= 1.0:
+            raise ValueError(f"Epsilon must be between 0 and 1, got {epsilon}")
+        if not 0.0 <= min_epsilon <= 1.0:
+            raise ValueError(f"min_epsilon must be between 0 and 1, got {min_epsilon}")
+        if not 0.0 < decay <= 1.0:
+            raise ValueError(f"decay must be between 0 and 1 (exclusive of 0), got {decay}")
+
+        super().__init__(name="epsilon_greedy", arms=arms)
 
         self.initial_epsilon = epsilon
         self.epsilon = epsilon
@@ -82,8 +90,9 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         self.exploration_count = 0
         self.exploitation_count = 0
 
+        # Set random seed for reproducibility
+        self.random_state = random.Random(random_seed) if random_seed is not None else random
         if random_seed is not None:
-            random.seed(random_seed)
             np.random.seed(random_seed)
 
     async def select_arm(self, features: QueryFeatures) -> ModelArm:
@@ -105,9 +114,9 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             "openai:gpt-4o-mini"
         """
         # Decide: explore or exploit?
-        if random.random() < self.epsilon:
+        if self.random_state.random() < self.epsilon:
             # EXPLORE: Random arm
-            selected_id = random.choice(list(self.arms.keys()))
+            selected_id = self.random_state.choice(list(self.arms.keys()))
             selected_arm = self.arms[selected_id]
             self.exploration_count += 1
         else:
@@ -131,8 +140,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             selected_arm = self.arms[selected_id]
             self.exploitation_count += 1
 
-        # Track selection
-        self.arm_pulls[selected_id] += 1
+        # Track total queries only (arm_pulls incremented by update())
         self.total_queries += 1
 
         # Decay epsilon
@@ -164,10 +172,10 @@ class EpsilonGreedyBandit(BanditAlgorithm):
 
         # Update running statistics
         self.sum_reward[model_id] += reward
-        pulls = self.arm_pulls[model_id]
+        self.arm_pulls[model_id] += 1  # Always increment for feedback count
 
-        if pulls > 0:
-            self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
+        pulls = self.arm_pulls[model_id]
+        self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
 
         # Track successes (quality above threshold)
         if reward >= 0.85:

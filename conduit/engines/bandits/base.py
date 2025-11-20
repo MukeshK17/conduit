@@ -52,9 +52,9 @@ class BanditFeedback(BaseModel):
     """
 
     model_id: str
-    cost: float
-    quality_score: float
-    latency: float
+    cost: float = Field(..., ge=0.0)
+    quality_score: float = Field(..., ge=0.0, le=1.0)
+    latency: float = Field(..., ge=0.0)
     success: bool = True
     metadata: dict[str, Any] = Field(default_factory=dict)
 

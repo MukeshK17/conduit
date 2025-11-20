@@ -65,7 +65,7 @@ class TestThompsonSamplingBandit:
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
             assert bandit.alpha[model_id] == 1.0
             assert bandit.beta[model_id] == 1.0
-            assert bandit.counts[model_id] == 0
+            assert bandit.arm_pulls[model_id] == 0
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -113,7 +113,7 @@ class TestThompsonSamplingBandit:
         # Beta should increase slightly
         assert bandit.beta[arm.model_id] >= initial_beta
         # Count should increment
-        assert bandit.counts[arm.model_id] == 1
+        assert bandit.arm_pulls[arm.model_id] == 1
 
     @pytest.mark.asyncio
     async def test_update_with_failure(self, test_arms, test_features):
@@ -138,7 +138,7 @@ class TestThompsonSamplingBandit:
         # Beta should increase more for low quality
         assert bandit.beta[arm.model_id] > initial_beta
         # Count should increment
-        assert bandit.counts[arm.model_id] == 1
+        assert bandit.arm_pulls[arm.model_id] == 1
 
     @pytest.mark.asyncio
     async def test_learning_over_time(self, test_arms, test_features):
@@ -212,7 +212,7 @@ class TestThompsonSamplingBandit:
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
             assert bandit.alpha[model_id] == 1.0
             assert bandit.beta[model_id] == 1.0
-            assert bandit.counts[model_id] == 0
+            assert bandit.arm_pulls[model_id] == 0
 
     @pytest.mark.asyncio
     async def test_random_seed_reproducibility(self, test_arms, test_features):
@@ -244,7 +244,7 @@ class TestThompsonSamplingBandit:
 
         alpha_after_1 = bandit.alpha[arm.model_id]
         beta_after_1 = bandit.beta[arm.model_id]
-        count_after_1 = bandit.counts[arm.model_id]
+        count_after_1 = bandit.arm_pulls[arm.model_id]
 
         # Second update
         feedback2 = BanditFeedback(
@@ -258,4 +258,4 @@ class TestThompsonSamplingBandit:
         # Parameters should continue updating
         assert bandit.alpha[arm.model_id] > alpha_after_1
         assert bandit.beta[arm.model_id] >= beta_after_1
-        assert bandit.counts[arm.model_id] == count_after_1 + 1
+        assert bandit.arm_pulls[arm.model_id] == count_after_1 + 1

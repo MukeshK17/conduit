@@ -61,19 +61,19 @@ class TestEpsilonGreedyBandit:
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
         assert bandit.epsilon == 0.1  # Default exploration rate
-        assert bandit.decay is False
+        assert bandit.decay == 1.0  # No decay by default
 
         # Check initial state
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
-            assert bandit.counts[model_id] == 0
-            assert bandit.values[model_id] == 0.0
+            assert bandit.arm_pulls[model_id] == 0
+            assert bandit.mean_reward[model_id] == 0.0
 
     def test_initialization_custom_epsilon(self, test_arms):
         """Test Epsilon-Greedy bandit with custom epsilon."""
-        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.2, decay=True)
+        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.2, decay=0.995)
 
         assert bandit.epsilon == 0.2
-        assert bandit.decay is True
+        assert bandit.decay == 0.995  # Decay enabled
 
     def test_initialization_epsilon_validation(self, test_arms):
         """Test epsilon must be between 0 and 1."""
@@ -190,8 +190,8 @@ class TestEpsilonGreedyBandit:
         await bandit.update(feedback, test_features)
 
         # Mean value should be updated
-        assert bandit.values[arm.model_id] == 0.9
-        assert bandit.counts[arm.model_id] == 1
+        assert bandit.mean_reward[arm.model_id] == 0.9
+        assert bandit.arm_pulls[arm.model_id] == 1
 
     @pytest.mark.asyncio
     async def test_running_average(self, test_arms, test_features):
@@ -208,7 +208,7 @@ class TestEpsilonGreedyBandit:
             latency=1.0,
         )
         await bandit.update(feedback1, test_features)
-        assert bandit.values[arm.model_id] == 0.8
+        assert bandit.mean_reward[arm.model_id] == 0.8
 
         # Second update: quality = 1.0
         feedback2 = BanditFeedback(
@@ -220,13 +220,13 @@ class TestEpsilonGreedyBandit:
         await bandit.update(feedback2, test_features)
 
         # Mean should be (0.8 + 1.0) / 2 = 0.9
-        assert bandit.values[arm.model_id] == 0.9
-        assert bandit.counts[arm.model_id] == 2
+        assert bandit.mean_reward[arm.model_id] == 0.9
+        assert bandit.arm_pulls[arm.model_id] == 2
 
     @pytest.mark.asyncio
     async def test_epsilon_decay(self, test_arms, test_features):
         """Test epsilon decay reduces exploration over time."""
-        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.5, decay=True)
+        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.5, decay=0.99)
 
         initial_epsilon = bandit.epsilon
 
@@ -249,7 +249,7 @@ class TestEpsilonGreedyBandit:
     @pytest.mark.asyncio
     async def test_no_decay_constant_epsilon(self, test_arms, test_features):
         """Test without decay, epsilon remains constant."""
-        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.3, decay=False)
+        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.3, decay=1.0)
 
         initial_epsilon = bandit.epsilon
 
@@ -291,13 +291,13 @@ class TestEpsilonGreedyBandit:
             await bandit.update(feedback, test_features)
 
         # After learning, gpt-4o should have highest mean value
-        assert bandit.values["gpt-4o"] > bandit.values["gpt-4o-mini"]
-        assert bandit.values["gpt-4o"] > bandit.values["claude-3-haiku"]
+        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["gpt-4o-mini"]
+        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["claude-3-haiku"]
 
     @pytest.mark.asyncio
     async def test_reset(self, test_arms):
         """Test reset restores initial state."""
-        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.3, decay=True)
+        bandit = EpsilonGreedyBandit(test_arms, epsilon=0.3, decay=0.99)
 
         features = QueryFeatures(
             embedding=[0.1] * 384,
@@ -329,8 +329,8 @@ class TestEpsilonGreedyBandit:
         assert bandit.total_queries == 0
         assert bandit.epsilon == 0.3  # Restored to initial epsilon
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
-            assert bandit.counts[model_id] == 0
-            assert bandit.values[model_id] == 0.0
+            assert bandit.arm_pulls[model_id] == 0
+            assert bandit.mean_reward[model_id] == 0.0
 
     @pytest.mark.asyncio
     async def test_random_seed_reproducibility(self, test_arms, test_features):

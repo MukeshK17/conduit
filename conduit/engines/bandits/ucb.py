@@ -58,7 +58,7 @@ class UCB1Bandit(BanditAlgorithm):
             ... ]
             >>> bandit = UCB1Bandit(arms, c=1.5)
         """
-        super().__init__(name=f"ucb1_c{c}", arms=arms)
+        super().__init__(name="ucb1", arms=arms)
 
         self.c = c
 
@@ -69,6 +69,9 @@ class UCB1Bandit(BanditAlgorithm):
 
         # Track successes for statistics
         self.arm_successes = {arm.model_id: 0 for arm in arms}
+
+        # Track explored arms for exploration phase (separate from feedback count)
+        self.explored_arms: set[str] = set()
 
         if random_seed is not None:
             np.random.seed(random_seed)
@@ -93,9 +96,9 @@ class UCB1Bandit(BanditAlgorithm):
         """
         # Exploration phase: Pull each arm at least once
         for model_id in self.arms:
-            if self.arm_pulls[model_id] == 0:
+            if model_id not in self.explored_arms:
+                self.explored_arms.add(model_id)
                 selected_arm = self.arms[model_id]
-                self.arm_pulls[model_id] += 1
                 self.total_queries += 1
                 return selected_arm
 
@@ -113,8 +116,7 @@ class UCB1Bandit(BanditAlgorithm):
         selected_id = max(ucb_values, key=ucb_values.get)  # type: ignore
         selected_arm = self.arms[selected_id]
 
-        # Track selection
-        self.arm_pulls[selected_id] += 1
+        # Track total queries only (arm_pulls incremented by update())
         self.total_queries += 1
 
         return selected_arm
@@ -142,10 +144,10 @@ class UCB1Bandit(BanditAlgorithm):
 
         # Update running statistics
         self.sum_reward[model_id] += reward
-        pulls = self.arm_pulls[model_id]
+        self.arm_pulls[model_id] += 1  # Always increment for feedback count
 
-        if pulls > 0:
-            self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
+        pulls = self.arm_pulls[model_id]
+        self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
 
         # Track successes (quality above threshold)
         if reward >= 0.85:
@@ -165,6 +167,7 @@ class UCB1Bandit(BanditAlgorithm):
         self.sum_reward = {arm.model_id: 0.0 for arm in self.arm_list}
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.arm_successes = {arm.model_id: 0 for arm in self.arm_list}
+        self.explored_arms = set()
         self.total_queries = 0
 
     def get_stats(self) -> dict[str, any]:  # type: ignore

@@ -168,7 +168,7 @@ class TestOracleBaseline:
         assert bandit.name == "oracle"
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
-        assert len(bandit.history) == 0
+        assert len(bandit.oracle_rewards) == 0
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -185,7 +185,7 @@ class TestOracleBaseline:
         bandit = OracleBaseline(test_arms)
 
         # Build history: gpt-4o performs best for this query
-        bandit.history = {
+        bandit.oracle_rewards = {
             "query_hash_1": {
                 "gpt-4o-mini": 0.80,
                 "gpt-4o": 0.95,  # Best
@@ -280,7 +280,7 @@ class TestOracleBaseline:
         bandit.reset()
 
         assert bandit.total_queries == 0
-        assert len(bandit.history) == 0
+        assert len(bandit.oracle_rewards) == 0
 
 
 class TestAlwaysBestBaseline:
