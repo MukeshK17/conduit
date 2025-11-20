@@ -118,12 +118,12 @@ class OracleBaseline(BanditAlgorithm):
         If rewards are unknown, defaults to arm with highest expected_quality.
 
         Args:
-            context: Query context
+            features: Query features from analyzer
 
         Returns:
             Optimal model arm for this query
         """
-        query_hash = hash(context.query_text)
+        query_hash = hash(features.query_text or "")
 
         # Check if we have oracle knowledge for this query
         best_reward = -float("inf")
@@ -155,9 +155,9 @@ class OracleBaseline(BanditAlgorithm):
 
         Args:
             feedback: Feedback containing actual reward
-            context: Query context
+            features: Query features from analyzer
         """
-        query_hash = hash(context.query_text)
+        query_hash = hash(features.query_text or "")
         key = (query_hash, feedback.model_id)
         self.oracle_rewards[key] = feedback.quality_score
 
