@@ -14,7 +14,8 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 - **Dual Feedback Loop**: Explicit (user ratings) + Implicit (errors, latency, retries)
 - **Redis Caching**: 10-40x performance improvement on repeated queries
 - **Graceful Degradation**: Core routing works without Redis
-- **Thompson Sampling**: Bayesian bandit algorithm for exploration/exploitation
+- **7 Bandit Algorithms**: Thompson Sampling, UCB1, Epsilon-Greedy, + 4 baselines (all in `conduit.engines.bandits`)
+- **Model Registry**: 17 models across 6 providers with real pricing data (`conduit.models`)
 
 ## Quick Start
 
@@ -147,6 +148,14 @@ Query → Embedding → ML Routing Engine → LLM Provider → Response
 3. Execute via PydanticAI
 4. Collect feedback
 5. Update routing model
+
+**Bandit Algorithms** (`conduit.engines.bandits`):
+- **Thompson Sampling**: Bayesian probability matching (default, optimal regret)
+- **UCB1**: Upper Confidence Bound (optimistic exploration, fast convergence)
+- **Epsilon-Greedy**: Simple exploration-exploitation (suboptimal but simple)
+- **Baselines**: Random, Oracle, AlwaysBest, AlwaysCheapest (for comparison)
+
+All algorithms use `QueryFeatures` for contextual routing and share the `BanditAlgorithm` interface.
 
 ## Documentation
 
