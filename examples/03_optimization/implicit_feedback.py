@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Implicit Feedback - Learning from Behavioral Signals.
 
 Demonstrates the "Observability Trinity":
@@ -32,7 +33,7 @@ async def main():
         await redis.ping()
         print(" Redis connected (retry detection enabled)")
     except Exception:
-        print("�  Redis unavailable (retry detection disabled)")
+        print("â ï¸  Redis unavailable (retry detection disabled)")
         redis = None
 
     analyzer = QueryAnalyzer()
@@ -110,7 +111,7 @@ async def main():
     if redis:
         await redis.aclose()
 
-    print("\n=� Learning happens automatically from behavioral signals!")
+    print("\n=¡ Learning happens automatically from behavioral signals!")
 
 
 if __name__ == "__main__":
