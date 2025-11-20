@@ -189,10 +189,29 @@ def create_routes(service: RoutingService) -> APIRouter:
         status_code=status.HTTP_200_OK,
     )
     async def health_ready() -> HealthResponse:
-        """Readiness probe for Kubernetes."""
+        """Readiness probe for Kubernetes.
+
+        Validates database connectivity before marking ready.
+        """
         from datetime import datetime, timezone
 
-        # TODO: Check database connection, etc.
+        # Check database connectivity
+        try:
+            if service.database.client:
+                # Simple database check - attempt to fetch model states
+                await service.database.get_model_states()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Database not connected",
+                )
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Database unhealthy: {str(e)}",
+            ) from e
+
         return HealthResponse(
             status="healthy",
             timestamp=datetime.now(timezone.utc).isoformat(),

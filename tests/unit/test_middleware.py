@@ -111,5 +111,16 @@ class TestSetupMiddleware:
                 # Verify CORS setup was called
                 mock_cors.assert_called_once_with(app)
 
-                # Verify logging middleware was added
-                mock_add.assert_called_once_with(LoggingMiddleware)
+                # Verify all middleware was added (4 total: Logging, Auth, RateLimit, SizeLimit)
+                assert mock_add.call_count == 4
+
+                # Check each middleware was added
+                from conduit.api.auth import AuthenticationMiddleware
+                from conduit.api.ratelimit import RateLimitMiddleware
+                from conduit.api.sizelimit import RequestSizeLimitMiddleware
+
+                middleware_types = [call[0][0] for call in mock_add.call_args_list]
+                assert LoggingMiddleware in middleware_types
+                assert AuthenticationMiddleware in middleware_types
+                assert RateLimitMiddleware in middleware_types
+                assert RequestSizeLimitMiddleware in middleware_types

@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     )
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, description="API port", ge=1, le=65535)
+    api_key: str = Field(default="", description="API key for authentication (empty = disabled)")
+    api_require_auth: bool = Field(
+        default=False, description="Require API key authentication for /v1/* endpoints"
+    )
+    api_max_request_size: int = Field(
+        default=10_000, description="Maximum request body size in bytes", ge=1000, le=1_000_000
+    )
 
     # Execution Timeouts
     llm_timeout_default: float = Field(
@@ -107,6 +114,26 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level")
     environment: str = Field(
         default="development", description="Environment (development, production)"
+    )
+
+    # OpenTelemetry Configuration
+    otel_enabled: bool = Field(
+        default=False, description="Enable OpenTelemetry instrumentation"
+    )
+    otel_service_name: str = Field(
+        default="conduit-router", description="Service name for telemetry"
+    )
+    otel_exporter_otlp_endpoint: str = Field(
+        default="http://localhost:4318", description="OTLP gRPC endpoint"
+    )
+    otel_exporter_otlp_headers: str = Field(
+        default="", description="OTLP headers (e.g., 'api-key=xxx')"
+    )
+    otel_traces_enabled: bool = Field(
+        default=True, description="Enable trace collection"
+    )
+    otel_metrics_enabled: bool = Field(
+        default=True, description="Enable metrics collection"
     )
 
     @model_validator(mode="after")

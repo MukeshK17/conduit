@@ -12,6 +12,8 @@
 **Stack**: Python 3.10+, PydanticAI, FastAPI, Contextual Bandit (Thompson Sampling)
 **Goal**: Learn optimal model selection from usage patterns vs static rules
 
+**⚠️ ALPHA SOFTWARE**: Breaking changes happen. No backwards compatibility guarantees. Move fast, fix things.
+
 **Positioning**: Intelligent LLM infrastructure (not cost tool)
 **Value Prop**: Learn which LLM to use for YOUR workload, reducing costs 30-50% while maintaining quality
 **Competitive Moat**: Self-improving Thompson Sampling algorithm creates data network effect

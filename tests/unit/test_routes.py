@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from conduit.api.app import create_app
 from conduit.api.service import RoutingService
@@ -13,6 +13,10 @@ from conduit.core.models import Feedback, RoutingResult
 def mock_service():
     """Create mock RoutingService."""
     service = AsyncMock(spec=RoutingService)
+    # Add database attribute for health checks
+    service.database = MagicMock()
+    service.database.client = MagicMock()
+    service.database.get_model_states = AsyncMock(return_value={})
     return service
 
 
@@ -273,7 +277,7 @@ class TestHealthEndpoints:
         assert "timestamp" in data
 
     def test_health_ready(self, client):
-        """Test readiness probe."""
+        """Test readiness probe with database check."""
         response = client.get("/health/ready")
 
         assert response.status_code == 200

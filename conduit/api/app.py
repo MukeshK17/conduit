@@ -15,6 +15,7 @@ from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandit import ContextualBandit
 from conduit.engines.executor import ModelExecutor
 from conduit.engines.router import RoutingEngine
+from conduit.observability import setup_telemetry, shutdown_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Shutdown
     logger.info("Shutting down Conduit API server...")
     await database.disconnect()
+    shutdown_telemetry()
     logger.info("Shutdown complete")
 
 
@@ -99,6 +101,9 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    # Setup OpenTelemetry instrumentation
+    setup_telemetry(app)
 
     # Setup middleware
     setup_middleware(app)

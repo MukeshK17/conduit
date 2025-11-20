@@ -17,12 +17,14 @@ class TestSettings:
         assert settings.database_pool_size == 20
         # Redis URL may come from environment (.env file) or default
         assert settings.redis_url.startswith("redis://")  # Accept any valid redis URL
-        assert settings.redis_ttl == 3600
+        assert settings.redis_cache_ttl == 86400  # 24 hours default
         assert settings.embedding_model == "all-MiniLM-L6-v2"
         assert settings.exploration_rate == 0.1
         assert settings.api_rate_limit == 100
         assert settings.api_host == "0.0.0.0"
         assert settings.api_port == 8000
+        assert settings.api_key == ""  # Empty by default
+        assert settings.api_require_auth == False  # Disabled by default
         assert settings.log_level == "INFO"
         assert settings.environment == "development"
 
