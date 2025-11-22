@@ -1,9 +1,9 @@
 """Utility functions for Conduit LiteLLM plugin."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def validate_litellm_model_list(model_list: List[Dict[str, Any]]) -> None:
+def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
     """Validate LiteLLM model_list format.
 
     Args:
@@ -39,7 +39,7 @@ def validate_litellm_model_list(model_list: List[Dict[str, Any]]) -> None:
             raise ValueError(f"Deployment {i} missing 'model_info.id'")
 
 
-def extract_model_ids(model_list: List[Dict[str, Any]]) -> List[str]:
+def extract_model_ids(model_list: list[dict[str, Any]]) -> list[str]:
     """Extract model IDs from LiteLLM model_list.
 
     Args:
@@ -86,7 +86,7 @@ def format_routing_metadata(
     confidence: float,
     reasoning: str,
     features: Any
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Format Conduit routing decision metadata for LiteLLM.
 
     Args:

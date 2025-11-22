@@ -1,7 +1,7 @@
 """LiteLLM routing strategy using Conduit's ML-powered model selection."""
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, cast
 
 from conduit.core.models import Query
 from conduit.engines.router import Router
@@ -58,7 +58,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
     def __init__(
         self,
-        conduit_router: Optional[Router] = None,
+        conduit_router: Router | None = None,
         **conduit_config: Any
     ):
         """Initialize Conduit routing strategy.
@@ -85,7 +85,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         self.conduit_router = conduit_router
         self.conduit_config = conduit_config
         self._initialized = False
-        self._router: Optional[Any] = None  # LiteLLM router reference
+        self._router: Any | None = None  # LiteLLM router reference
 
     @staticmethod
     def setup_strategy(router: Any, strategy: "ConduitRoutingStrategy") -> None:
@@ -164,11 +164,11 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
     async def async_get_available_deployment(
         self,
         model: str,
-        messages: Optional[List[Dict[str, str]]] = None,
-        input: Optional[Union[str, List[Any]]] = None,
-        specific_deployment: Optional[bool] = False,
-        request_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, str]] | None = None,
+        input: str | list[Any] | None = None,
+        specific_deployment: bool | None = False,
+        request_kwargs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Select optimal LiteLLM deployment using Conduit's ML routing.
 
         This method is called by LiteLLM to select which deployment to use
@@ -196,7 +196,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         query_text = self._extract_query_text(messages, input)
 
         # Route through Conduit
-        query = Query(text=query_text)
+        query = Query(text=query_text, user_id=None, context=None, constraints=None)
         decision = await self.conduit_router.route(query)  # type: ignore[union-attr]
 
         logger.debug(
@@ -205,10 +205,13 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         )
 
         # Find matching deployment in LiteLLM's model_list
+        if self._router is None:
+            raise RuntimeError("Router not initialized. Use setup_strategy() to initialize.")
+
         for deployment in self._router.model_list:
             if deployment["model_info"]["id"] == decision.selected_model:
                 # TODO: Store routing context for feedback loop (Issue #13)
-                return deployment
+                return cast(dict[str, Any], deployment)
 
         # Fallback 1: Find deployment matching model group name
         logger.warning(
@@ -217,23 +220,23 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         )
         for deployment in self._router.model_list:
             if deployment.get("model_name") == model:
-                return deployment
+                return cast(dict[str, Any], deployment)
 
         # Fallback 2: Return first deployment (last resort)
         logger.error(
             f"No deployment found for model '{model}'. "
             f"Returning first deployment: {self._router.model_list[0]['model_info']['id']}"
         )
-        return self._router.model_list[0]
+        return cast(dict[str, Any], self._router.model_list[0])
 
     def get_available_deployment(
         self,
         model: str,
-        messages: Optional[List[Dict[str, str]]] = None,
-        input: Optional[Union[str, List[Any]]] = None,
-        specific_deployment: Optional[bool] = False,
-        request_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, str]] | None = None,
+        input: str | list[Any] | None = None,
+        specific_deployment: bool | None = False,
+        request_kwargs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Synchronous version of get_available_deployment.
 
         This method provides backward compatibility with LiteLLM's synchronous
@@ -280,8 +283,8 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
     def _extract_query_text(
         self,
-        messages: Optional[List[Dict[str, str]]],
-        input: Optional[Union[str, List[Any]]]
+        messages: list[dict[str, str]] | None,
+        input: str | list[Any] | None
     ) -> str:
         """Extract query text from LiteLLM request format.
 
@@ -307,8 +310,8 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         deployment_id: str,
         cost: float,
         latency: float,
-        quality_score: Optional[float] = None,
-        error: Optional[str] = None
+        quality_score: float | None = None,
+        error: str | None = None
     ) -> None:
         """Record feedback to update Conduit's bandit algorithm.
 

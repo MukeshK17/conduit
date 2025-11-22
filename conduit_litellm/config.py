@@ -1,7 +1,7 @@
 """Configuration options for Conduit LiteLLM plugin."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 
 @dataclass
@@ -29,10 +29,10 @@ class ConduitLiteLLMConfig:
     use_hybrid: bool = False
     embedding_model: str = "all-MiniLM-L6-v2"
     cache_enabled: bool = False
-    redis_url: Optional[str] = None
+    redis_url: str | None = None
     cache_ttl: int = 3600
 
-    def to_conduit_config(self) -> dict:
+    def to_conduit_config(self) -> dict[str, Any]:
         """Convert to Conduit Router configuration dictionary.
 
         Returns:
