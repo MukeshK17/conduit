@@ -340,6 +340,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### 🚫 NEVER Do
 
+**CRITICAL SECURITY VIOLATION** ⚠️:
+- **NEVER EVER COMMIT CREDENTIALS TO GITHUB**
+- No API keys, tokens, passwords, secrets in ANY file
+- No credentials in code, documentation, examples, tests, or configuration files
+- Use environment variables (.env files in .gitignore) ONLY
+- This is NON-NEGOTIABLE - violating this rule has serious security consequences
+
 **Code Quality Violations**:
 - Skip tests to make builds pass
 - Disable type checking or linting errors
@@ -352,7 +359,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - Force push to shared branches
 - Delete failing tests instead of fixing them
 - Remove error handling to "fix" issues
-- Commit secrets, API keys, or credentials
 
 **Anti-Patterns**:
 - Use `Any` type without clear justification
