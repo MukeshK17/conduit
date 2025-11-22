@@ -12,9 +12,10 @@ Security Design:
 
 import logging
 import secrets
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from fastapi import Request, status
+from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -38,7 +39,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: Callable,
+        app: Callable[..., Any],
         protected_prefixes: list[str] | None = None,
     ):
         """Initialize authentication middleware.
@@ -58,7 +59,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 "All protected requests will be rejected."
             )
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(
+        self, request: Request, call_next: Callable[..., Awaitable[Response]]
+    ) -> Response:
         """Process request and validate authentication if required.
 
         Args:

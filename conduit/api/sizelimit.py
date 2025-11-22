@@ -10,9 +10,10 @@ Security Design:
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from fastapi import Request, status
+from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -36,7 +37,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: Callable,
+        app: Callable[..., Any],
         max_size: int | None = None,
     ):
         """Initialize request size limit middleware.
@@ -49,7 +50,9 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         self.max_size = max_size or settings.api_max_request_size
         logger.info(f"Request size limit initialized: {self.max_size} bytes")
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(
+        self, request: Request, call_next: Callable[..., Awaitable[Response]]
+    ) -> Response:
         """Process request and enforce size limits.
 
         Args:

@@ -324,6 +324,11 @@ class Router:
         if use_hybrid is None:
             use_hybrid = settings.use_hybrid_routing
 
+        # Declare attributes with proper types (can be None depending on mode)
+        self.hybrid_router: HybridRouter | None
+        self.routing_engine: RoutingEngine | None
+        self.bandit: ContextualBandit | None
+
         # Initialize routing components based on mode
         if use_hybrid:
             # Hybrid routing: UCB1→LinUCB warm start
@@ -380,9 +385,11 @@ class Router:
         """
         if self.use_hybrid:
             # Hybrid routing: UCB1→LinUCB
+            assert self.hybrid_router is not None  # Type narrowing for mypy
             return await self.hybrid_router.route(query)
         else:
             # Standard routing: Thompson Sampling
+            assert self.routing_engine is not None  # Type narrowing for mypy
             return await self.routing_engine.route(query)
 
     def get_cache_stats(self) -> dict[str, Any] | None:

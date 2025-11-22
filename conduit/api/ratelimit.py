@@ -16,9 +16,10 @@ Performance:
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from fastapi import Request, status
+from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError, TimeoutError
@@ -45,7 +46,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: Callable,
+        app: Callable[..., Any],
         redis_url: str | None = None,
         rate_limit: int | None = None,
         window_seconds: int = 60,
@@ -62,7 +63,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.redis_url = redis_url or settings.redis_url
         self.rate_limit = rate_limit or settings.api_rate_limit
         self.window_seconds = window_seconds
-        self.redis: Redis[bytes] | None = None
+        self.redis: Redis | None = None
 
         # Initialize Redis client
         try:
@@ -79,7 +80,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.error(f"Failed to initialize Redis for rate limiting: {e}")
             self.redis = None
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(
+        self, request: Request, call_next: Callable[..., Awaitable[Response]]
+    ) -> Response:
         """Process request and enforce rate limits.
 
         Args:

@@ -12,6 +12,7 @@ Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Upper_Confidence_Bou
 
 import math
 from collections import deque
+from typing import Any
 
 import numpy as np
 
@@ -232,7 +233,7 @@ class UCB1Bandit(BanditAlgorithm):
 
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get algorithm statistics.
 
         Returns:

@@ -6,7 +6,7 @@ in-memory with TTL. Falls back to static pricing if fetch fails.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -93,7 +93,7 @@ async def fetch_pricing_from_api() -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(LLM_PRICES_API)
         response.raise_for_status()
-        data = response.json()
+        data = cast(dict[str, Any], response.json())
 
     logger.info(
         f"Fetched {len(data['prices'])} models (updated: {data['updated_at']})"

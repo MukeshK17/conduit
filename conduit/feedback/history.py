@@ -61,7 +61,7 @@ class QueryHistoryTracker:
 
     def __init__(
         self,
-        redis: Redis[bytes] | None = None,
+        redis: Redis | None = None,
         ttl_seconds: int = 300,  # 5 minutes
     ):
         """Initialize query history tracker.

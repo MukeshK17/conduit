@@ -197,7 +197,7 @@ def create_routes(service: RoutingService) -> APIRouter:
 
         # Check database connectivity
         try:
-            if service.database.client:
+            if service.database.pool:
                 # Simple database check - attempt to fetch model states
                 await service.database.get_model_states()
             else:
