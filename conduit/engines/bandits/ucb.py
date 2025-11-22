@@ -88,13 +88,14 @@ class UCB1Bandit(BanditAlgorithm):
 
         # Sliding window: Store recent rewards per arm (Phase 3 - Non-stationarity)
         # If window_size > 0, use deque with maxlen. Otherwise, use list (unlimited).
+        self.reward_history: dict[str, deque[float]]
         if window_size > 0:
-            self.reward_history: dict[str, deque[float]] = {
+            self.reward_history = {
                 arm.model_id: deque(maxlen=window_size) for arm in arms
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.reward_history: dict[str, deque[float]] = {
+            self.reward_history = {
                 arm.model_id: deque() for arm in arms
             }
 
