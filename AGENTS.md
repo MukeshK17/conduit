@@ -49,7 +49,7 @@ uv run python examples/02_routing/basic_routing.py
   - API: Use `Agent(...).run(..., deps=...)` not `Agent(..., deps=...)`
 - **Pydantic**: 2.12+ (data validation and settings)
 - **FastAPI**: 0.115+ (REST API endpoints)
-- **PostgreSQL**: Via Supabase (routing history storage)
+- **PostgreSQL**: Any provider - self-hosted, AWS RDS, Supabase, Neon, etc. (routing history)
 - **Redis**: Optional (caching and rate limiting - graceful degradation)
 
 ### ML Stack

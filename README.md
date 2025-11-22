@@ -47,7 +47,8 @@ asyncio.run(main())
 - Python 3.10+ (3.13 recommended)
 - LLM API keys (OpenAI, Anthropic, Google, or Groq) - at least one required
 - Redis instance (optional - for caching and retry detection)
-- Supabase account (optional - for query history persistence)
+- PostgreSQL database (optional - for query history persistence)
+  - Works with any provider: self-hosted, AWS RDS, Supabase, Neon, Railway, etc.
 
 ### Step 1: Clone and Install
 
@@ -78,10 +79,13 @@ ANTHROPIC_API_KEY=your_anthropic_key_here
 GOOGLE_API_KEY=your_google_key_here
 GROQ_API_KEY=your_groq_key_here
 
-# Supabase (required)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anon_key_here
-DATABASE_URL=postgresql://postgres.your-project:[password]@aws-0-region.pooler.supabase.com:6543/postgres
+# PostgreSQL (required if using database features)
+# Works with any PostgreSQL provider
+DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
+# Examples:
+# - Local: postgresql://postgres:password@localhost:5432/conduit
+# - Supabase: postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres
+# - AWS RDS: postgresql://user:password@instance.region.rds.amazonaws.com:5432/conduit
 
 # Redis (optional - Phase 2+)
 REDIS_URL=redis://localhost:6379
@@ -95,14 +99,14 @@ ENVIRONMENT=development
 
 **Option A: Using Alembic (recommended)**
 ```bash
-# Ensure DATABASE_URL in .env points to Supabase pooler connection
+# Ensure DATABASE_URL in .env points to your PostgreSQL database
 ./migrate.sh
 ```
 
-**Option B: Manual SQL (if pooler not available)**
+**Option B: Manual SQL**
 ```bash
-# Copy SQL content and paste into Supabase SQL Editor
-cat migrations/001_initial_schema.sql
+# Run SQL directly via psql or your database provider's SQL editor
+psql $DATABASE_URL < migrations/001_initial_schema.sql
 ```
 
 See `migrations/DEPLOYMENT.md` for detailed migration instructions.
@@ -194,7 +198,7 @@ All algorithms use `QueryFeatures` for contextual routing and share the `BanditA
 - ✅ Core routing engine (ML-powered model selection)
 - ✅ Query analysis (embeddings, complexity, domain classification)
 - ✅ Thompson Sampling bandit algorithm
-- ✅ Database schema (PostgreSQL/Supabase)
+- ✅ Database schema (PostgreSQL - any provider)
 - ✅ Type safety (mypy strict mode passes)
 - ✅ Comprehensive tests (87% overall coverage)
 
