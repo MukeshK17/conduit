@@ -87,14 +87,6 @@ Strategic analysis and implementation plans for LiteLLM integration:
 
 Original design specification and requirements.
 
-### [success_metrics.md](success_metrics.md) - Success Criteria
-
-Metrics and KPIs for measuring Conduit's effectiveness.
-
-### [PRICING_UPDATES.md](PRICING_UPDATES.md) - Pricing Infrastructure
-
-Model pricing table and automated sync workflow.
-
 ## Quick Navigation
 
 ### I want to understand...
@@ -174,17 +166,15 @@ Model pricing table and automated sync workflow.
 |----------|--------|--------------|
 | HYBRID_ROUTING.md | ✅ Complete | 2025-11-22 |
 | PCA_GUIDE.md | ✅ Complete | 2025-11-22 |
-| LITELLM_INTEGRATION.md | ✅ Complete | 2025-11-21 |
 | BANDIT_ALGORITHMS.md | ✅ Complete + Hybrid Routing | 2025-11-22 |
-| MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
-| BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
 | COLD_START.md | ✅ Complete + PCA/Hybrid refs | 2025-11-22 |
+| MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
+| LITELLM_INTEGRATION.md | ✅ Complete | 2025-11-21 |
+| BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
 | BENCHMARK_STRATEGY.md | ✅ Complete | 2025-11-19 |
 | IMPLICIT_FEEDBACK.md | ✅ Complete | 2025-11-19 |
 | ARCHITECTURE.md | ✅ Complete | 2025-11-18 |
 | DESIGN_SPEC.md | ✅ Complete | 2025-11-18 |
-| success_metrics.md | ⏳ Needs Update | 2025-11-18 |
-| PRICING_UPDATES.md | ⚠️ Deprecated | 2025-11-18 |
 
 ## Contributing
 
@@ -199,5 +189,5 @@ When updating documentation:
 ## Questions?
 
 - **Technical Implementation**: See CLAUDE.md in project root
-- **Development Workflow**: See AGENTS.md in project root
-- **Strategic Decisions**: See notes/ directory
+- **Development Workflow**: See CLAUDE.md in project root
+- **Strategic Decisions**: See notes/ directory (especially 2025-11-18_business_panel_analysis.md)
