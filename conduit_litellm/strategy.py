@@ -37,14 +37,17 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
     to learn which models perform best for different types of queries, optimizing
     for quality, cost, and latency.
 
+    IMPORTANT: LiteLLM's set_custom_routing_strategy() doesn't provide a clean way
+    to pass the router reference to the strategy. You must use the setup_strategy()
+    helper method instead:
+
     Example:
         >>> from litellm import Router
         >>> from conduit_litellm import ConduitRoutingStrategy
         >>>
         >>> router = Router(model_list=[...])
-        >>> router.set_custom_routing_strategy(
-        ...     ConduitRoutingStrategy(use_hybrid=True)
-        ... )
+        >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+        >>> ConduitRoutingStrategy.setup_strategy(router, strategy)  # Use helper!
         >>>
         >>> # Now LiteLLM uses Conduit's ML routing
         >>> response = await router.acompletion(
@@ -83,6 +86,28 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         self.conduit_config = conduit_config
         self._initialized = False
         self._router: Optional[Any] = None  # LiteLLM router reference
+
+    @staticmethod
+    def setup_strategy(router: Any, strategy: "ConduitRoutingStrategy") -> None:
+        """Set up strategy on LiteLLM router with proper initialization.
+
+        This is a helper method that works around LiteLLM's design where
+        set_custom_routing_strategy() doesn't provide the router reference
+        to the strategy instance.
+
+        Args:
+            router: LiteLLM Router instance
+            strategy: ConduitRoutingStrategy instance to install
+
+        Example:
+            >>> router = Router(model_list=[...])
+            >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+            >>> ConduitRoutingStrategy.setup_strategy(router, strategy)
+        """
+        # Store router reference before binding
+        strategy._router = router
+        # Now set the strategy (LiteLLM will bind methods to router)
+        router.set_custom_routing_strategy(strategy)
 
     async def _initialize_from_litellm(self, router: Any) -> None:
         """Initialize Conduit router from LiteLLM model list on first call.
@@ -164,12 +189,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             RuntimeError: If router not initialized (shouldn't happen in normal usage).
         """
         # Initialize on first call
-        if self._router is None:
-            raise RuntimeError(
-                "ConduitRoutingStrategy not properly initialized. "
-                "Ensure LiteLLM router calls this method after setting the strategy."
-            )
-
+        # Note: _router should be set via setup_strategy() helper method
         await self._initialize_from_litellm(self._router)
 
         # Extract query text from messages or input
