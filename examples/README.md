@@ -50,6 +50,13 @@ brew install redis && redis-server
 - Latency-optimized routing (max_latency constraint)
 - Provider preferences (preferred_provider)
 
+**contextual_thompson.py** - Bayesian contextual bandit routing
+- Contextual Thompson Sampling with Bayesian linear regression
+- Posterior distribution tracking (μ, Σ)
+- Natural exploration via posterior sampling
+- Sliding window for non-stationarity adaptation
+- Uncertainty quantification and confidence metrics
+
 ### 03_optimization/ - Performance & Learning
 
 **caching.py** - 10-40x speedup with Redis caching
