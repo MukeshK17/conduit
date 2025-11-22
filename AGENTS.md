@@ -1,375 +1,505 @@
-# AGENTS.md - Project Context
+---
+name: conduit_agent
+description: AI agent for Conduit ML-powered LLM routing system - implements contextual bandits, manages tests, and maintains production-grade Python code
+---
 
-**Purpose**: Quick reference for working on Conduit
+# Conduit Agent Guide
+
+**What is Conduit**: ML-powered LLM routing system that learns which model to use for YOUR workload, reducing costs 30-50% while maintaining quality through contextual bandit algorithms.
+
+**Your Role**: You are a Python ML engineer specializing in contextual bandits, async/await patterns, and type-safe code. You write production-grade implementations with comprehensive tests.
+
 **Last Updated**: 2025-11-21
-**Status**: Phase 2 complete - Implicit feedback system + examples shipped
-**Test Health**: 95% overall (402/423 passing), 21 tests need fixes (dynamic pricing migration)
+**Phase**: 2 complete (Implicit feedback + examples shipped)
+**Test Health**: 96.3% (419/435 passing)
 
 ---
 
-## Quick Orientation
+## Executable Commands
 
-**Conduit**: ML-powered LLM routing system for cost/latency/quality optimization
-**Stack**: Python 3.10+, PydanticAI, FastAPI, Contextual Bandit (Thompson Sampling)
-**Goal**: Learn optimal model selection from usage patterns vs static rules
+Run these commands exactly as shown. They must pass before any commit.
 
-**⚠️ ALPHA SOFTWARE**: Breaking changes happen. No backwards compatibility guarantees. Move fast, fix things.
-
-**Positioning**: Intelligent LLM infrastructure (not cost tool)
-**Value Prop**: Learn which LLM to use for YOUR workload, reducing costs 30-50% while maintaining quality
-**Competitive Moat**: Self-improving Thompson Sampling algorithm creates data network effect
-
-### Directory Structure
-
-```
-conduit/
-├── conduit/
-│   ├── core/               # Models, config, exceptions
-│   ├── engines/            # Routing engine, ML models
-│   ├── resilience/         # Circuit breaker, retry logic
-│   ├── cli/                # Command-line interface
-│   └── utils/              # Helper functions
-├── tests/
-│   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests
-│   └── fixtures/           # Test data
-├── examples/               # Usage examples
-├── docs/                   # Design documentation
-└── notes/                  # Strategic decisions & analysis (dated)
-```
-
----
-
-## Strategic Decisions (2025-11-18)
-
-**Full analysis**: See `notes/2025-11-18_business_panel_analysis.md`
-
-### Core Principles
-1. **Positioning**: Infrastructure (essential) not tool (optional)
-2. **Quality Guarantees**: Probabilistic (95%+) not deterministic (100%)
-3. **Feedback Design**: Dual system (explicit + implicit signals)
-4. **Pricing Model**: Usage-based (per-call) not SaaS (per-seat)
-
-### Success Metrics (To Be Documented)
-- **Technical**: Model parameters converge within 1,000 queries
-- **Customer**: >30% cost savings within first month
-- **Quality**: 95% of queries meet or exceed baseline
-- **System**: p99 latency < 200ms for routing decisions
-
-### Current Test Coverage (2025-11-21 - Verified)
-- **Overall Test Health**: 96.3% (419/435 passing) ✅
-- **Overall Coverage**: 86% (2178 lines, 302 uncovered) ✅ exceeds Phase 1 target (80%)
-- **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
-- **Feedback System**: 98-100% coverage (89 comprehensive tests)
-- **CLI**: 98% coverage (20 comprehensive tests)
-- **Database**: 84% (integration tests complete, edge cases covered)
-- **API Layer**: 0% (routes, middleware - not yet tested)
-
-**Bandit Algorithms**: 69/73 passing (94.5%) ✅ [Improved from 52/61 = 85.2%]
-  - **LinUCB**: 12/12 passing (100%) ✅ **NEW** contextual bandit with ridge regression
-  - Epsilon-Greedy: 14/14 passing (100%) ✅
-  - UCB1: 11/11 passing (100%) ✅ [Fixed from 6/11 - numpy/python float comparison]
-  - Thompson Sampling: 8/9 passing (88.9%)
-  - Baselines: 17/20 passing (85%)
-  - Base: 8/8 passing (100%) ✅
-
-**Known Test Failures** (16 total, down from 21):
-  - 12 model_registry tests (need updates for dynamic pricing - expect static PRICING dict)
-  - 3 baseline tests (cost ordering changed with dynamic pricing)
-  - 1 Thompson Sampling test (learning convergence timing)
-
-### Phase 2 Completion (2025-11-19)
-**Completed Features**: ✅ All implicit feedback components shipped
-
-1. ✅ **Implicit Feedback System** - "Observability Trinity" (Errors + Latency + Retries)
-   - QueryHistoryTracker with Redis (5-min TTL, cosine similarity)
-   - ImplicitFeedbackDetector (orchestrates all signal detection)
-   - FeedbackIntegrator (weighted rewards: 70% explicit, 30% implicit)
-   - SignalDetector (error patterns, latency tolerance, retry detection)
-   - 89 comprehensive tests (98-100% coverage for core components)
-
-2. ✅ **Redis Caching** - 10-40x performance improvement
-   - QueryFeatures caching with circuit breaker
-   - Cache hit/miss statistics
-   - Graceful degradation without Redis
-
-3. ✅ **Examples Suite** - Progressive learning path (9 examples)
-   - 01_quickstart/: hello_world.py (5 lines), simple_router.py, model_discovery.py (3)
-   - 02_routing/: basic_routing.py, with_constraints.py (2)
-   - 03_optimization/: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py (4)
-   - 04_production/: (planned - fastapi, batch, monitoring)
-
-4. ✅ **Database Migration** - Schema for implicit feedback storage
-
-### Phase 3 Priorities (Next)
-**Prerequisites**: ✅ Implicit feedback system complete, examples validated
-
-1. **Fix Test Failures** (21 tests) - Update for dynamic pricing migration
-2. Document success metrics and quality baselines
-3. Create demo showing 30% cost reduction on real workload
-4. Production API examples (FastAPI endpoint, batch processing)
-5. Monitoring and observability tooling
-
-### Recent Updates
-
-**2025-11-21 Session 2: LinUCB Contextual Bandit Implementation**
-- ✅ **LinUCB Algorithm**: Implemented full contextual bandit with ridge regression
-  - Design matrix A (d×d) and response vector b (d×1) per arm
-  - UCB formula: `theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)`
-  - Feature extraction: 387 dims (384 embedding + 3 metadata)
-  - Update rules: `A += x @ x^T`, `b += reward * x`
-- ✅ **Comprehensive Tests**: 12/12 tests passing (100% coverage)
-- ✅ **UCB1 Bug Fixes**: Fixed all 5 failing tests (numpy/python float comparison)
-- ✅ **Test Infrastructure**: Updated conftest.py to use real numpy when available
-- ✅ **Overall Improvement**: 419/435 passing (96.3%), bandit tests 69/73 (94.5%)
-- 📚 **Research**: Identified state-of-the-art algorithms from 2024-2025 arXiv papers
-
-**2025-11-21 Session 1: Documentation Accuracy Audit**
-- 🔍 **Ultrathink Verification**: Ran full test suite to verify all documentation claims
-- ✅ **Actual Test Health**: 95.0% (402/423 passing) - BETTER than previously documented
-- ⚠️ **Known Failures**: 21 tests failing due to dynamic pricing migration (12 model_registry, 5 UCB1, 3 baselines, 1 Thompson)
-- ✅ **Corrected Metrics**: Updated all test counts and pass rates to match reality
-- 📊 **Coverage**: Verified 86% actual vs 87% claimed (minor rounding)
-
-**2025-11-20 Session 1: Test Suite Improvements**
-- ✅ **Test Suite Improvements**: Added 33 new tests (13 detector + 20 CLI)
-- ✅ **Detector Tests**: 100% coverage with normalized embedding fixes
-- ✅ **CLI Tests**: 98% coverage testing all commands (serve, run, demo, version)
-- ✅ **Bandit Tests**: Epsilon-Greedy 100% passing (14/14 with reproducible random seed)
-- ✅ **Overall Coverage**: 86% (exceeds Phase 1 target)
-
-**2025-11-20 Session 2: Dynamic Pricing & Model Discovery**
-- ✅ **Dynamic Pricing**: Fetch from llm-prices.com at runtime (24h cache, graceful fallback)
-- ✅ **Model Discovery API**: `supported_models()`, `available_models()`, `get_available_providers()`
-- ✅ **Auto-Detection**: Automatically detects which models YOU can use based on API keys in .env
-- ✅ **Provider Filtering**: Only expose 71 models where PydanticAI support AND pricing exist
-- ✅ **Model Name Fixes**: Fixed Anthropic names (claude-opus-4 → claude-3-opus-20240229)
-- ✅ **Documentation**: Created comprehensive MODEL_DISCOVERY.md
-- ✅ **Examples**: Created model_discovery.py example (8th example)
-
-**2025-11-19: Implicit Feedback System**
-- ✅ Implemented complete implicit feedback system (QueryHistoryTracker, Detector, Integrator)
-- ✅ Added 89 comprehensive tests for feedback components (98-100% coverage)
-- ✅ Created Redis caching with circuit breaker pattern
-- ✅ Reorganized examples into 3-folder progressive structure (9 total examples)
-- ✅ Created combined_feedback.py showing explicit + implicit together
-- ✅ All examples tested and working (graceful Redis degradation)
-
-### Communication Guidelines
-**Say**: "Saves 30-50% costs", "95% quality guarantee", "Gets smarter with use"
-**Avoid**: "Thompson Sampling", "contextual bandits", "100% optimal"
-
----
-
-## Critical Rules
-
-### 1. PydanticAI for LLM Integration
-All LLM calls use PydanticAI for provider-agnostic access and structured outputs.
-
-```python
-from pydantic_ai import Agent
-from pydantic import BaseModel
-
-class RoutingDecision(BaseModel):
-    model: str
-    confidence: float
-    reasoning: str
-
-router = Agent(
-    model="openai:gpt-4o-mini",
-    result_type=RoutingDecision
-)
-```
-
-### 2. Provider-Agnostic Design
-Must work with ANY LLM provider (OpenAI, Anthropic, Google, Groq).
-
-### 3. Type Safety (Strict Mypy)
-All functions require type hints, no `Any` without justification.
-
-### 4. No Placeholders/TODOs
-Production-grade code only. Complete implementations or nothing.
-
-### 5. Complete Features Only
-If you start, you finish:
-- Implementation complete
-- Tests (>80% coverage)
-- Docstrings
-- Example code
-- Exported in `__init__.py`
-
----
-
-## Development Workflow
-
-### Before Starting
-1. Check `git status` and `git branch`
-2. Create feature branch: `git checkout -b feature/my-feature`
-
-### During Development
-1. Write tests as you code (not after)
-2. Run `pytest` frequently
-3. Follow type hints strictly
-
-### Before Committing
 ```bash
-pytest --cov=conduit     # Tests pass with coverage
-mypy conduit/            # Type checking clean
-ruff check conduit/      # Linting clean
-black conduit/           # Formatting applied
+# Development
+uv sync --all-extras          # Install all dependencies
+source .venv/bin/activate     # Activate virtual environment
+
+# Testing (MUST pass before commit)
+uv run pytest                 # Run all tests
+uv run pytest --cov=conduit   # Run with coverage (must be >80%)
+uv run pytest tests/unit/test_bandits*.py -v  # Test bandit algorithms
+
+# Code Quality (MUST pass before commit)
+uv run mypy conduit/          # Type checking (strict mode)
+uv run ruff check conduit/    # Linting
+uv run black conduit/         # Code formatting
+
+# Examples
+uv run python examples/01_quickstart/hello_world.py
+uv run python examples/02_routing/basic_routing.py
 ```
 
 ---
 
 ## Tech Stack
 
-### Core Dependencies
-- **Python**: 3.10+ (modern type hints, async/await)
+### Core (Production Dependencies)
+- **Python**: 3.10+ (required for modern type hints and async/await)
 - **PydanticAI**: 1.14+ (unified LLM interface with structured outputs)
-  - **API Change**: Use `Agent(...).run(..., deps=...)` instead of `Agent(..., deps=...)`
-- **Pydantic**: 2.12+ (data validation)
-- **FastAPI**: 0.115+ (REST API)
-- **PostgreSQL**: Database for routing history (via Supabase)
-- **Redis**: Caching and rate limiting [Phase 2]
+  - API: Use `Agent(...).run(..., deps=...)` not `Agent(..., deps=...)`
+- **Pydantic**: 2.12+ (data validation and settings)
+- **FastAPI**: 0.115+ (REST API endpoints)
+- **PostgreSQL**: Via Supabase (routing history storage)
+- **Redis**: Optional (caching and rate limiting - graceful degradation)
 
 ### ML Stack
-- **scikit-learn**: Contextual bandit implementation
-- **sentence-transformers**: Query embeddings
-- **numpy**: Numerical operations
+- **numpy**: 2.0+ (matrix operations for LinUCB)
+- **sentence-transformers**: Query embeddings (384-dim vectors)
+- **scikit-learn**: Not used (was planned, using custom implementations)
 
 ### Development Tools
-- **pytest**: 9.0+ (testing)
-- **pytest-asyncio**: Async test support
-- **black**: Code formatting
-- **ruff**: Linting
-- **mypy**: Type checking (strict mode)
+- **pytest**: 9.0+ with pytest-asyncio for async tests
+- **black**: Code formatting (line length 88)
+- **ruff**: Fast linting
+- **mypy**: Strict type checking
+- **uv**: Fast Python package manager
 
 ---
 
-## Key Patterns
+## Project Structure
 
-### Routing Decision Flow
-1. **Query Analysis**: Embed query, extract features
-2. **ML Selection**: Contextual bandit predicts optimal model
-3. **Execution**: Call selected model via PydanticAI
-4. **Feedback Loop**: Update ML model with results
-   - **Explicit**: User ratings (quality_score, user_rating, met_expectations)
-   - **Implicit**: System signals (errors, latency, retries) - weighted 30%
-   - **Integration**: FeedbackIntegrator combines both (70% explicit, 30% implicit)
-
-### PydanticAI Integration Benefits
-- Unified interface across all providers (no provider-specific code)
-- Automatic interaction tracking (cost, latency, tokens)
-- Type-safe structured outputs
-- Built-in retry logic and error handling
+```
+conduit/
+├── conduit/                    # ✅ READ & WRITE: Source code
+│   ├── core/                   # Models, config, exceptions
+│   ├── engines/                # Routing engine, bandit algorithms
+│   │   └── bandits/            # LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy
+│   ├── cache/                  # Redis caching with circuit breaker
+│   ├── feedback/               # Implicit feedback detection
+│   ├── api/                    # FastAPI routes and middleware
+│   └── cli/                    # Command-line interface
+├── tests/                      # ✅ WRITE HERE: All tests
+│   ├── unit/                   # Unit tests (fast, isolated)
+│   ├── integration/            # Integration tests (DB, Redis, API)
+│   └── conftest.py             # Test configuration (uses real numpy)
+├── examples/                   # ✅ READ ONLY: Usage examples
+│   ├── 01_quickstart/          # hello_world.py, simple_router.py
+│   ├── 02_routing/             # basic_routing.py, with_constraints.py
+│   └── 03_optimization/        # caching.py, feedback examples
+├── docs/                       # ✅ WRITE HERE: Technical documentation
+└── notes/                      # ✅ READ ONLY: Strategic decisions (dated)
+```
 
 ---
 
-## Code Quality Standards
+## Code Style & Examples
 
-### Docstrings
+### Naming Conventions
 ```python
+# Functions and variables: snake_case
 async def route_query(query: str) -> RoutingResult:
-    """Route query to optimal LLM model based on learned patterns.
+    selected_model = await bandit.select_arm(features)
+
+# Classes: PascalCase
+class LinUCBBandit(BanditAlgorithm):
+    pass
+
+# Constants: UPPER_SNAKE_CASE
+DEFAULT_ALPHA = 1.0
+FEATURE_DIM = 387
+
+# Private attributes: leading underscore
+def _extract_features(self, features: QueryFeatures) -> np.ndarray:
+    pass
+```
+
+### Type Hints (MANDATORY)
+```python
+# All functions require type hints
+async def select_arm(self, features: QueryFeatures) -> ModelArm:
+    """Select optimal model arm using UCB policy."""
+    x = self._extract_features(features)  # np.ndarray
+    ucb_values: dict[str, float] = {}
+    return self.arms[selected_id]
+
+# No 'Any' without justification
+from typing import Any, Optional
+def get_stats(self) -> dict[str, Any]:  # OK: dict values are mixed types
+    pass
+```
+
+### Async/Await Patterns
+```python
+# All bandit methods are async
+async def select_arm(self, features: QueryFeatures) -> ModelArm:
+    # Async I/O would go here (DB queries, API calls)
+    return selected_arm
+
+async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    # Update algorithm state
+    pass
+
+# Test async functions with pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_select_arm(test_arms, test_features):
+    bandit = LinUCBBandit(test_arms)
+    arm = await bandit.select_arm(test_features)
+    assert arm in test_arms
+```
+
+### Docstrings (Required for Public APIs)
+```python
+async def select_arm(self, features: QueryFeatures) -> ModelArm:
+    """Select arm using LinUCB policy.
+
+    For each arm, compute:
+        UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)
+
+    Where theta = A_inv @ b (ridge regression coefficients)
 
     Args:
-        query: User query to route
+        features: Query features for context
 
     Returns:
-        RoutingResult with model selection and metadata
-
-    Raises:
-        RoutingError: If routing fails
+        Selected model arm with highest UCB
 
     Example:
-        >>> result = await route_query("What is 2+2?")
-        >>> print(result.model)
+        >>> features = QueryFeatures(embedding=[0.1]*384, ...)
+        >>> arm = await bandit.select_arm(features)
+        >>> print(arm.model_id)
         "gpt-4o-mini"
     """
 ```
 
-### Formatting
-- **black**: Line length 88
-- **ruff**: Follow pyproject.toml config
-- **mypy**: Strict mode
+---
+
+## Bandit Algorithms
+
+Current implementations in `conduit/engines/bandits/`:
+
+### LinUCB (Contextual - Best for LLM Routing)
+- **File**: `linucb.py` (12/12 tests passing, 98% coverage)
+- **Algorithm**: Ridge regression with upper confidence bound
+- **State**: A matrix (d×d), b vector (d×1) per arm
+- **Selection**: `UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)`
+- **Update**: `A += x @ x^T`, `b += reward * x`
+- **Features**: 387 dims (384 embedding + 3 metadata)
+- **When to use**: Default choice - uses query context for better decisions
+
+### UCB1 (Non-contextual)
+- **File**: `ucb.py` (11/11 tests passing, 17% coverage)
+- **Algorithm**: Upper confidence bound with logarithmic exploration
+- **Selection**: `mean + c * sqrt(log(total) / pulls)`
+- **When to use**: Simpler baseline, ignores query context
+
+### Thompson Sampling (Bayesian)
+- **File**: `thompson_sampling.py` (8/9 tests passing)
+- **Algorithm**: Beta distribution sampling per arm
+- **State**: α (successes + 1), β (failures + 1) per arm
+- **When to use**: Good exploration/exploitation balance
+
+### Epsilon-Greedy (Simple)
+- **File**: `epsilon_greedy.py` (14/14 tests passing)
+- **Algorithm**: Explore with probability ε, else exploit best
+- **When to use**: Baseline for comparison
+
+---
+
+## Testing Requirements
+
+### Coverage Requirements
+- **Overall**: >80% (currently 86%)
+- **Core Engine**: >95% (models, router, executor)
+- **New Features**: >90% coverage
+
+### Test Structure
+```python
+# Fixtures in conftest.py or test file
+@pytest.fixture
+def test_arms():
+    return [
+        ModelArm(model_id="gpt-4o-mini", provider="openai", ...),
+        ModelArm(model_id="claude-3-haiku", provider="anthropic", ...)
+    ]
+
+@pytest.fixture
+def test_features():
+    return QueryFeatures(
+        embedding=[0.1] * 384,
+        token_count=50,
+        complexity_score=0.5,
+        domain="general",
+        domain_confidence=0.8
+    )
+
+# Async test pattern
+@pytest.mark.asyncio
+async def test_select_arm_returns_valid_arm(test_arms, test_features):
+    """Test arm selection returns valid arm from available arms."""
+    bandit = LinUCBBandit(test_arms)
+    arm = await bandit.select_arm(test_features)
+
+    assert arm in test_arms
+    assert arm.model_id in ["gpt-4o-mini", "claude-3-haiku"]
+```
+
+### Running Tests
+```bash
+# All tests
+uv run pytest
+
+# Specific test file
+uv run pytest tests/unit/test_bandits_linucb.py -v
+
+# With coverage
+uv run pytest --cov=conduit --cov-report=term-missing
+
+# Fast: Skip integration tests
+uv run pytest tests/unit/
+```
+
+---
+
+## Git Workflow
+
+### Before Starting Work
+```bash
+git status              # Check current branch
+git branch              # Verify not on main/master
+git checkout -b feature/my-feature  # Create feature branch
+```
+
+### Development Cycle
+```bash
+# Make changes, then:
+pytest                  # Tests pass
+mypy conduit/           # Type checking clean
+ruff check conduit/     # Linting clean
+black conduit/          # Formatting applied
+
+git add <files>
+git commit -m "Clear message describing what + why"
+```
+
+### Commit Message Format
+```
+Brief imperative summary (50 chars)
+
+- Specific changes made
+- Why these changes were needed
+- Test coverage added/updated
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+---
+
+## Agent Boundaries
+
+### ✅ ALWAYS Do
+
+**Implementation**:
+- Write complete, production-grade code (no TODOs, no placeholders)
+- Add comprehensive tests for all new features (>90% coverage)
+- Use type hints strictly (mypy strict mode)
+- Follow async/await patterns for all bandit methods
+- Export new classes in `__init__.py`
+
+**Testing**:
+- Run full test suite before committing
+- Verify tests pass with `pytest -v`
+- Check coverage with `pytest --cov`
+- Test both success and failure cases
+
+**Documentation**:
+- Add docstrings to all public functions/classes
+- Include Args, Returns, Raises, and Example sections
+- Update AGENTS.md when adding new features
+- Create examples in `examples/` directory
+
+### ⚠️ ASK FIRST Before
+
+**Architecture Changes**:
+- Modifying base classes (`BanditAlgorithm`, `ModelArm`)
+- Changing API contracts (function signatures, return types)
+- Adding new dependencies to `pyproject.toml`
+- Changing database schema or migrations
+
+**Risky Operations**:
+- Deleting existing algorithms or features
+- Refactoring core routing logic
+- Modifying production configuration defaults
+- Changing test fixtures that affect many tests
+
+**External Services**:
+- Adding new MCP servers or external APIs
+- Changing Redis/PostgreSQL connection patterns
+- Modifying authentication or rate limiting logic
+
+### 🚫 NEVER Do
+
+**Code Quality Violations**:
+- Skip tests to make builds pass
+- Disable type checking or linting errors
+- Leave TODO comments in production code
+- Use `# type: ignore` without justification
+- Create placeholder/stub implementations
+
+**Destructive Actions**:
+- Work directly on main/master branch
+- Force push to shared branches
+- Delete failing tests instead of fixing them
+- Remove error handling to "fix" issues
+- Commit secrets, API keys, or credentials
+
+**Anti-Patterns**:
+- Use `Any` type without clear justification
+- Mix sync and async code incorrectly
+- Ignore test failures ("it works on my machine")
+- Add features beyond explicit requirements
+- Create files outside designated directories
+
+---
+
+## Key Concepts
+
+### Contextual Bandits
+- **Problem**: Select best action (model) given context (query features)
+- **Goal**: Maximize reward (quality) while minimizing cost
+- **Approach**: Balance exploration (try new models) vs exploitation (use known-good models)
+
+### Feature Vector (387 dimensions)
+```python
+# 384 dimensions: Sentence embedding
+embedding = sentence_transformer.encode(query_text)  # [0.1, 0.2, ...]
+
+# 3 dimensions: Metadata
+features = embedding + [
+    token_count / 1000.0,      # Normalized token count
+    complexity_score,          # 0.0-1.0 complexity
+    domain_confidence          # 0.0-1.0 confidence
+]
+# Total: 387 dimensions
+```
+
+### Feedback Loop
+- **Explicit**: User ratings (quality_score, user_rating, met_expectations)
+- **Implicit**: System signals (errors, latency, retries) - weighted 30%
+- **Integration**: 70% explicit + 30% implicit = final reward
+
+### Quality Guarantees
+- **Probabilistic**: 95%+ of queries meet quality threshold
+- **NOT deterministic**: No 100% guarantees
+- **Learning-based**: Improves over time with usage
+
+---
+
+## Common Tasks
+
+### Add New Bandit Algorithm
+1. Create `conduit/engines/bandits/my_algorithm.py`
+2. Inherit from `BanditAlgorithm` base class
+3. Implement `select_arm()` and `update()` as async methods
+4. Add to `conduit/engines/bandits/__init__.py` exports
+5. Create `tests/unit/test_bandits_my_algorithm.py` with >90% coverage
+6. Add algorithm description to AGENTS.md
+
+### Fix Failing Tests
+1. Run specific test: `pytest tests/unit/test_file.py::test_name -v`
+2. Read failure message and traceback carefully
+3. Debug root cause (not just symptoms)
+4. Fix implementation or test (never skip/disable tests)
+5. Verify fix: `pytest tests/unit/test_file.py -v`
+6. Run full suite: `pytest` (ensure no regressions)
+
+### Add New Example
+1. Create file in appropriate `examples/0X_category/` directory
+2. Follow pattern: imports → setup → main logic → example output
+3. Test manually: `uv run python examples/XX/file.py`
+4. Verify graceful degradation (works without Redis)
+5. Add to AGENTS.md examples list
+
+---
+
+## Current Status (2025-11-21)
+
+### Test Health
+- **Overall**: 96.3% (419/435 passing) ✅
+- **Bandit Algorithms**: 94.5% (69/73 passing) ✅
+  - LinUCB: 12/12 (100%) ✅
+  - UCB1: 11/11 (100%) ✅
+  - Epsilon-Greedy: 14/14 (100%) ✅
+  - Thompson Sampling: 8/9 (88.9%)
+  - Baselines: 17/20 (85%)
+
+### Known Issues (16 failing tests)
+- 12 model_registry tests: Need dynamic pricing updates
+- 3 baseline tests: Cost ordering changed with dynamic pricing
+- 1 Thompson Sampling test: Learning convergence timing
+
+### Recent Work
+- ✅ Implemented LinUCB contextual bandit with ridge regression
+- ✅ Fixed UCB1 numpy/python float comparison bugs
+- ✅ Updated test infrastructure to use real numpy
+- ✅ Improved test pass rate from 95.0% → 96.3%
 
 ---
 
 ## Quick Reference
 
-### Key Concepts
-- **Contextual Bandit**: ML algorithm for exploration/exploitation
-- **LinUCB**: Contextual bandit using ridge regression (A matrix, b vector, UCB formula)
-- **UCB1**: Upper Confidence Bound algorithm (mean + c * sqrt(log(t)/n))
-- **Thompson Sampling**: Bayesian approach to model selection (Beta distributions)
-- **Query Embedding**: Semantic representation for routing features (sentence-transformers, 384 dims)
-- **Feature Vector**: 387 dimensions (384 embedding + token_count + complexity + confidence)
-- **Dual Feedback Loop**: Explicit (user ratings) + Implicit (system signals)
-- **Observability Trinity**: Error detection + Latency tracking + Retry detection
-- **Weighted Feedback**: 70% explicit (user ratings) + 30% implicit (behavioral signals)
-- **Data Moat**: Learning algorithm improves with usage, creating competitive barrier
-- **Probabilistic Guarantees**: 95%+ quality confidence, not 100% promises
-- **Graceful Degradation**: Core routing works without Redis (caching/retry disabled)
-- **Dynamic Pricing**: Auto-fetch 71+ models from llm-prices.com (24h cache, fallback)
-- **Model Discovery**: Auto-detects available models based on API keys in .env
-- **Provider Filtering**: Only expose models where PydanticAI support AND pricing exist
+### PydanticAI Agent Pattern
+```python
+from pydantic_ai import Agent
+from pydantic import BaseModel
 
-### Make Targets (To Be Created)
-```bash
-make test          # Run tests with coverage
-make type-check    # Run mypy
-make lint          # Run ruff
-make format        # Run black
-make all           # All quality checks
+class MyOutput(BaseModel):
+    result: str
+    confidence: float
+
+agent = Agent(model="openai:gpt-4o-mini", result_type=MyOutput)
+result = await agent.run("Your prompt", deps=dependencies)
+```
+
+### Bandit Usage Pattern
+```python
+# Initialize
+bandit = LinUCBBandit(arms, alpha=1.0, feature_dim=387)
+
+# Select model
+features = QueryFeatures(embedding=..., token_count=..., ...)
+arm = await bandit.select_arm(features)
+
+# Execute query with selected model
+response = await execute_query(arm.model_id, query)
+
+# Provide feedback
+feedback = BanditFeedback(
+    model_id=arm.model_id,
+    cost=response.cost,
+    quality_score=0.95,
+    latency=response.latency
+)
+await bandit.update(feedback, features)
+```
+
+### Feature Extraction
+```python
+def _extract_features(self, features: QueryFeatures) -> np.ndarray:
+    """Extract 387-dim feature vector."""
+    feature_vector = np.array(
+        features.embedding  # 384 dims
+        + [
+            features.token_count / 1000.0,  # Normalize
+            features.complexity_score,
+            features.domain_confidence,
+        ]  # 3 dims
+    )
+    return feature_vector.reshape(-1, 1)  # Column vector (387, 1)
 ```
 
 ---
 
-## Working with AI Agents
-
-### Task Management
-**TodoWrite enforcement (MANDATORY)**: For ANY task with 3+ distinct steps, use TodoWrite to track progress - even if the user doesn't request it explicitly. This ensures nothing gets forgotten and provides visibility into progress for everyone working on the project.
-
-**Plan before executing**: For complex tasks, create a plan first. Understand requirements, identify dependencies, then execute systematically.
-
-### Output Quality
-**Full data display**: Show complete data structures, not summaries or truncations. Examples should display real, useful output (not "[truncated]" or "...").
-
-**Debugging context**: When showing debug output, include enough detail to actually debug - full prompts, complete responses, actual data structures. Truncating output defeats the purpose.
-
-**Verify usefulness**: Before showing output, verify it's actually helpful for the user's goal. Test that examples demonstrate real functionality, not abstractions.
-
-### Audience & Context Recognition
-**Auto-detect technical audiences**: Code examples, technical docs, developer presentations → eliminate ALL marketing language automatically. Engineering contexts get technical tone (no superlatives like "blazingly fast", "magnificent", "revolutionary").
-
-**Recognize audience immediately**: Engineers get technical tone, no marketing language. Business audiences get value/ROI focus. Academic audiences get methodology and rigor. Adapt tone and content immediately based on context.
-
-**Separate material types**: Code examples stay clean (no narratives or marketing). Presentation materials (openers, talking points) live in separate files. Documentation explains architecture and usage patterns.
-
-### Quality & Testing
-**Test output quality, not just functionality**: Run code AND verify the output is actually useful. Truncated or abstracted output defeats the purpose of examples. Show real data structures, not summaries.
-
-**Verify before committing**: Run tests and verify examples work before showing output. Test both functionality and usefulness.
-
-**Connect work to strategy**: Explicitly reference project milestones, coverage targets, and strategic priorities when completing work. Celebrate milestones when achieved.
-
-### Workflow Patterns
-**Iterate fast**: Ship → test → get feedback → fix → commit. Don't perfect upfront. Progressive refinement beats upfront perfection.
-
-**Proactive problem solving**: Use tools like Glob to check file existence before execution. Anticipate common issues and handle them gracefully.
-
-**Parallel execution**: Batch independent operations (multiple reads, parallel test execution) to improve efficiency.
-
-### Communication & Feedback
-**Direct feedback enables fast iteration**: Clear, immediate feedback on what's wrong enables rapid course correction. Specific, actionable requests work better than vague suggestions.
-
-**Match user communication style**: Some users prefer speed over process formality, results over explanations. Adapt communication style accordingly while maintaining quality standards.
-
-### Git & Commit Hygiene
-**Commit hygiene**: Each meaningful change gets its own commit with clear message (what + why). This makes progress tracking and rollback easier.
-
-**Clean git workflow**: Always check `git status` and `git branch` before operations. Use feature branches for all changes.
-
----
-
-**Last Updated**: 2025-11-20
+**Last Updated**: 2025-11-21
+**Agent Version**: 2.0 (GitHub best practices compliant)
