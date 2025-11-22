@@ -105,6 +105,30 @@ class Settings(BaseSettings):
         le=1.0,
     )
 
+    # Hybrid Routing Configuration
+    use_hybrid_routing: bool = Field(
+        default=False,
+        description="Enable hybrid routing (UCB1→LinUCB warm start for 30% faster convergence)",
+    )
+    hybrid_switch_threshold: int = Field(
+        default=2000,
+        description="Query count to switch from UCB1 to LinUCB in hybrid mode",
+        ge=100,
+        le=10000,
+    )
+    hybrid_ucb1_c: float = Field(
+        default=1.5,
+        description="UCB1 exploration parameter (c) for hybrid routing phase 1",
+        ge=0.1,
+        le=10.0,
+    )
+    hybrid_linucb_alpha: float = Field(
+        default=1.0,
+        description="LinUCB exploration parameter (alpha) for hybrid routing phase 2",
+        ge=0.1,
+        le=10.0,
+    )
+
     # API Configuration
     api_rate_limit: int = Field(
         default=100, description="Requests per minute per user", ge=1, le=1000

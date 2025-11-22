@@ -13,6 +13,7 @@ from conduit.core.models import (
 )
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandit import ContextualBandit
+from conduit.engines.hybrid_router import HybridRouter
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +277,7 @@ class Router:
         models: list[str] | None = None,
         embedding_model: str = "all-MiniLM-L6-v2",
         cache_enabled: bool | None = None,
+        use_hybrid: bool | None = None,
     ):
         """Initialize router with default components.
 
@@ -283,6 +285,7 @@ class Router:
             models: List of available model IDs. If None, uses defaults.
             embedding_model: Sentence transformer model for query analysis.
             cache_enabled: Override cache enabled setting. If None, uses config default.
+            use_hybrid: Override hybrid routing setting. If None, uses config default.
         """
         # Use default models if not specified
         if models is None:
@@ -308,7 +311,7 @@ class Router:
         else:
             logger.info("Router initialized with caching disabled")
 
-        # Initialize components
+        # Initialize analyzer
         self.analyzer = QueryAnalyzer(
             embedding_model=embedding_model,
             cache_service=cache_service,
@@ -316,13 +319,50 @@ class Router:
             pca_dimensions=settings.pca_dimensions,
             pca_model_path=settings.pca_model_path,
         )
-        self.bandit = ContextualBandit(models=models)
-        self.routing_engine = RoutingEngine(
-            bandit=self.bandit,
-            analyzer=self.analyzer,
-            models=models,
-        )
+
+        # Determine whether to use hybrid routing
+        if use_hybrid is None:
+            use_hybrid = settings.use_hybrid_routing
+
+        # Initialize routing components based on mode
+        if use_hybrid:
+            # Hybrid routing: UCB1→LinUCB warm start
+            feature_dim = self.analyzer.feature_dim
+            reward_weights = {
+                "quality": settings.reward_weight_quality,
+                "cost": settings.reward_weight_cost,
+                "latency": settings.reward_weight_latency,
+            }
+
+            self.hybrid_router = HybridRouter(
+                models=models,
+                switch_threshold=settings.hybrid_switch_threshold,
+                analyzer=self.analyzer,
+                feature_dim=feature_dim,
+                ucb1_c=settings.hybrid_ucb1_c,
+                linucb_alpha=settings.hybrid_linucb_alpha,
+                reward_weights=reward_weights,
+            )
+            self.routing_engine = None  # Not used in hybrid mode
+            self.bandit = None  # Not used in hybrid mode
+            logger.info(
+                f"Router initialized with HYBRID routing "
+                f"(switch at {settings.hybrid_switch_threshold} queries, "
+                f"feature_dim={feature_dim})"
+            )
+        else:
+            # Standard routing: Thompson Sampling
+            self.bandit = ContextualBandit(models=models)
+            self.routing_engine = RoutingEngine(
+                bandit=self.bandit,
+                analyzer=self.analyzer,
+                models=models,
+            )
+            self.hybrid_router = None  # Not used in standard mode
+            logger.info("Router initialized with STANDARD routing (Thompson Sampling)")
+
         self.cache = cache_service
+        self.use_hybrid = use_hybrid
 
     async def route(self, query: Query) -> RoutingDecision:
         """Route a query to the optimal model.
@@ -338,7 +378,12 @@ class Router:
             >>> decision = await router.route(query)
             >>> print(f"Use {decision.selected_model} (confidence: {decision.confidence:.2f})")
         """
-        return await self.routing_engine.route(query)
+        if self.use_hybrid:
+            # Hybrid routing: UCB1→LinUCB
+            return await self.hybrid_router.route(query)
+        else:
+            # Standard routing: Thompson Sampling
+            return await self.routing_engine.route(query)
 
     def get_cache_stats(self) -> dict[str, Any] | None:
         """Get cache performance statistics.

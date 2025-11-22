@@ -40,7 +40,8 @@ asyncio.run(main())
 - **01_quickstart/**: hello_world.py (5 lines), simple_router.py, model_discovery.py
 - **02_routing/**: basic_routing.py, with_constraints.py, contextual_thompson.py
 - **03_optimization/**: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
-- **04_production/**: (coming soon - FastAPI, batch processing, monitoring)
+- **04_pca/**: pca_setup.py (one-time training), pca_routing.py (75% sample reduction)
+- **05_production/**: (coming soon - FastAPI, batch processing, monitoring)
 
 ## Installation & Setup
 
