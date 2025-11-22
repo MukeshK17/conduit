@@ -3,7 +3,7 @@
 **Purpose**: Understand the multi-armed bandit algorithms available in Conduit for intelligent LLM routing.
 
 **Last Updated**: 2025-11-21
-**Status**: Complete - 5 algorithms implemented and tested
+**Status**: Complete - 6 algorithms implemented and tested (2 contextual, 4 non-contextual)
 
 ---
 
@@ -244,6 +244,7 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 | Algorithm | Type | Uses Context? | Best For | Complexity | Test Coverage |
 |-----------|------|---------------|----------|------------|---------------|
 | **LinUCB** | Contextual | ✅ Yes | Production (recommended) | High | 12/12 (100%) |
+| **Contextual Thompson** | Contextual | ✅ Yes | Bayesian + context | High | 17/17 (100%) |
 | **Thompson Sampling** | Non-contextual | ❌ No | Bayesian approach | Medium | 8/9 (89%) |
 | **UCB1** | Non-contextual | ❌ No | Simple baseline | Low | 11/11 (100%) |
 | **Epsilon-Greedy** | Non-contextual | ❌ No | Experimentation | Low | 14/14 (100%) |
@@ -251,9 +252,13 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 
 ### Quick Recommendation
 
-**For production LLM routing**: Use **LinUCB** (contextual bandit with ridge regression)
+**For production LLM routing**: Use **LinUCB** or **Contextual Thompson Sampling** (contextual bandits)
 
-**Why**: LinUCB uses query features (embedding, complexity, domain) to make smarter routing decisions. A simple query like "What is 2+2?" should route to gpt-4o-mini, while a complex research query should route to GPT-4o or Claude Opus.
+**Why**: Contextual algorithms use query features (embedding, complexity, domain) to make smarter routing decisions. A simple query like "What is 2+2?" should route to gpt-4o-mini, while a complex research query should route to GPT-4o or Claude Opus.
+
+**LinUCB vs Contextual Thompson**:
+- **LinUCB**: Deterministic UCB, faster convergence, proven for LLM routing
+- **Contextual Thompson**: Bayesian sampling, natural exploration, better for uncertainty quantification
 
 ---
 
@@ -381,7 +386,191 @@ await bandit.update(feedback, features)
 
 ---
 
-## 2. Thompson Sampling
+## 2. Contextual Thompson Sampling
+
+**File**: `conduit/engines/bandits/contextual_thompson_sampling.py`
+**Type**: Contextual bandit with Bayesian linear regression
+**Status**: 17/17 tests passing, 96% coverage ✅
+
+### How It Works
+
+Contextual Thompson Sampling combines Thompson Sampling's Bayesian exploration strategy with contextual features. It maintains a **Bayesian linear regression model** for each LLM model.
+
+**State per model**:
+- **μ (mu)** (387×1): Posterior mean vector (expected reward coefficients)
+- **Σ (Sigma)** (387×387): Posterior covariance matrix (uncertainty)
+- **θ (theta)** (387×1): Sampled coefficient vector from posterior
+
+**Posterior distribution**:
+```
+θ ~ N(μ, Σ)  # Multivariate normal distribution
+```
+
+**Selection process**:
+1. For each model: Sample θ_hat ~ N(μ, Σ) from posterior
+2. Compute expected reward: r = θ_hat^T · x
+3. Select model with highest sampled reward
+
+**Update rules** (Bayesian linear regression):
+```
+Σ_new = (Σ_0^-1 + λ · Σ(x_i · x_i^T))^-1     # Posterior covariance
+μ_new = Σ_new · (Σ_0^-1 · μ_0 + λ · Σ(r_i · x_i))  # Posterior mean
+```
+
+Where:
+- **Σ_0**: Prior covariance (identity matrix = uninformative prior)
+- **μ_0**: Prior mean (zero vector = uninformative prior)
+- **λ (lambda_reg)**: Regularization parameter / noise precision (default: 1.0)
+- **x_i**: Feature vector for observation i
+- **r_i**: Reward for observation i
+
+### Why Use Contextual Thompson Sampling?
+
+✅ **Use when**:
+- You want **Bayesian uncertainty quantification** with contextual features
+- **Cold start** is important (works well with little data)
+- Natural **exploration via sampling** preferred over UCB
+- You need **probabilistic reward estimates**
+- Context matters (query features drive routing decisions)
+
+❌ **Don't use when**:
+- You need **deterministic decisions** (use LinUCB instead)
+- **Computational cost** is critical (sampling requires Cholesky decomposition)
+- You prefer simpler, more interpretable algorithms
+
+### Feature Vector (387 dimensions)
+
+Same as LinUCB:
+```python
+[
+    # 384 dimensions: Sentence embedding (semantic meaning)
+    embedding[0], embedding[1], ..., embedding[383],
+
+    # 3 dimensions: Metadata
+    token_count / 1000.0,     # Normalized token count
+    complexity_score,          # 0.0-1.0
+    domain_confidence          # 0.0-1.0
+]
+```
+
+### Prior and Posterior
+
+**Prior** (uninformative):
+```
+μ_0 = 0  (zero vector)
+Σ_0 = I  (identity matrix)
+```
+
+**Posterior Evolution**:
+- Initially: High uncertainty (Σ = I), exploration dominates
+- With data: Uncertainty decreases (trace(Σ) ↓), exploitation increases
+- **Adaptive**: Automatically balances exploration/exploitation
+
+### Example Usage
+
+```python
+from conduit.engines.bandits import ContextualThompsonSamplingBandit
+from conduit.core.models import QueryFeatures
+from conduit.engines.bandits.base import BanditFeedback
+
+# Initialize
+bandit = ContextualThompsonSamplingBandit(
+    arms,
+    lambda_reg=1.0,      # Regularization (higher = more stable)
+    random_seed=42,      # For reproducibility
+    window_size=1000     # Sliding window for non-stationarity
+)
+
+# Extract features
+features = QueryFeatures(
+    embedding=embed_query(query),
+    token_count=len(query.split()),
+    complexity_score=0.7,
+    domain="technical",
+    domain_confidence=0.85
+)
+
+# Select model (samples from posterior)
+selected_arm = await bandit.select_arm(features)
+print(f"Selected: {selected_arm.model_id}")
+
+# Execute query with selected model
+response = await execute_llm_query(selected_arm.model_id, query)
+
+# Provide feedback
+feedback = BanditFeedback(
+    model_id=selected_arm.model_id,
+    cost=response.cost,
+    quality_score=0.92,
+    latency=1.2
+)
+await bandit.update(feedback, features)
+
+# Check posterior statistics
+stats = bandit.get_stats()
+print(f"Posterior mean norm: {stats['arm_mu_norms']}")
+print(f"Posterior uncertainty: {stats['arm_sigma_traces']}")
+```
+
+### Hyperparameters
+
+- **lambda_reg**: Regularization parameter (default: 1.0)
+  - Higher (2.0-10.0): Tighter posterior, more regularization, slower learning
+  - Lower (0.1-1.0): Looser posterior, less regularization, faster learning
+- **feature_dim**: 387 (fixed by embedding model)
+- **window_size**: Sliding window size (default: 1000)
+  - 0: Unlimited history (stationary)
+  - 500-1000: Moderate adaptation
+  - 100-500: Fast adaptation to changes
+- **success_threshold**: Reward threshold for statistics (default: 0.85)
+- **random_seed**: Optional (for reproducibility)
+
+### Mathematical Details
+
+**Sampling from Posterior**:
+```python
+# Sample θ using Cholesky decomposition
+L = cholesky(Σ)              # Σ = L · L^T
+z ~ N(0, I)                   # Standard normal vector
+θ_hat = μ + L · z             # Sample from N(μ, Σ)
+```
+
+**Posterior Update** (from windowed observations):
+```python
+# Compute sufficient statistics
+Σ_inv = I + λ · Σ(x_i · x_i^T)  # Precision matrix
+weighted_sum = λ · Σ(r_i · x_i)  # Weighted feature sum
+
+# Update posterior
+Σ_new = inv(Σ_inv)
+μ_new = Σ_new · weighted_sum
+```
+
+**Uncertainty Decreases with Data**:
+- Initial uncertainty: trace(Σ) = 387 (identity matrix)
+- After N observations: trace(Σ) ↓ monotonically
+- Convergence: trace(Σ) → 0 as N → ∞
+
+### Comparison: Contextual Thompson vs LinUCB
+
+| Aspect | Contextual Thompson | LinUCB |
+|--------|-------------------|--------|
+| **Decision** | Stochastic (samples from posterior) | Deterministic (UCB formula) |
+| **Exploration** | Natural (via posterior sampling) | Explicit (UCB bonus term) |
+| **Uncertainty** | Full Bayesian posterior | Confidence intervals |
+| **Computation** | Cholesky decomposition (slower) | Matrix inversion (faster) |
+| **Interpretability** | Probabilistic rewards | Upper confidence bounds |
+| **Theory** | Bayesian regret bounds | Frequentist regret bounds |
+| **Best for** | Uncertainty quantification | Fast, proven convergence |
+
+### References
+
+- **Paper**: [Thompson Sampling for Contextual Bandits with Linear Payoffs](http://proceedings.mlr.press/v28/agrawal13.pdf) (Agrawal & Goyal, 2013)
+- **Implementation**: Bayesian linear regression with multivariate normal posterior
+
+---
+
+## 3. Thompson Sampling (Non-Contextual)
 
 **File**: `conduit/engines/bandits/thompson_sampling.py`
 **Type**: Bayesian bandit with Beta distributions
@@ -449,7 +638,7 @@ print(stats["beta"])   # {model_id: beta_value}
 
 ---
 
-## 3. UCB1 (Upper Confidence Bound)
+## 4. UCB1 (Upper Confidence Bound)
 
 **File**: `conduit/engines/bandits/ucb.py`
 **Type**: Non-contextual bandit with logarithmic exploration
@@ -512,7 +701,7 @@ print(stats["arm_ucb_values"])   # Current UCB values
 
 ---
 
-## 4. Epsilon-Greedy
+## 5. Epsilon-Greedy
 
 **File**: `conduit/engines/bandits/epsilon_greedy.py`
 **Type**: Non-contextual bandit with random exploration
@@ -564,7 +753,7 @@ await bandit.update(feedback, features)
 
 ---
 
-## 5. Baseline Algorithms
+## 6. Baseline Algorithms
 
 **File**: `conduit/engines/bandits/baselines.py`
 **Type**: Reference implementations for benchmarking

@@ -5,6 +5,7 @@ model selection. All algorithms share a common interface and work with
 Conduit's QueryFeatures.
 
 Available Algorithms:
+- ContextualThompsonSamplingBandit: Bayesian linear regression with Thompson Sampling (contextual, optimal regret)
 - ThompsonSamplingBandit: Bayesian probability matching (optimal regret)
 - LinUCBBandit: Contextual linear UCB (uses query features, proven for LLM routing)
 - UCB1Bandit: Upper Confidence Bound (optimal regret, fastest convergence)
@@ -22,6 +23,7 @@ from .baselines import (
     OracleBaseline,
     RandomBaseline,
 )
+from .contextual_thompson_sampling import ContextualThompsonSamplingBandit
 from .epsilon_greedy import EpsilonGreedyBandit
 from .linucb import LinUCBBandit
 from .thompson_sampling import ThompsonSamplingBandit
@@ -31,6 +33,7 @@ __all__ = [
     "BanditAlgorithm",
     "BanditFeedback",
     "ModelArm",
+    "ContextualThompsonSamplingBandit",
     "ThompsonSamplingBandit",
     "LinUCBBandit",
     "UCB1Bandit",
