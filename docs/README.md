@@ -69,6 +69,9 @@ Comprehensive documentation of all bandit algorithms:
 - Thompson Sampling (Beta distributions)
 - UCB1 (upper confidence bounds)
 - Epsilon-Greedy (exploration vs exploitation)
+- Hybrid Routing (UCB1→LinUCB warm start - 30% faster convergence)
+
+**Related**: [COLD_START.md](COLD_START.md) for sample efficiency strategies
 
 ### [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) - LiteLLM Integration Strategy
 
@@ -105,6 +108,8 @@ Model pricing table and automated sync workflow.
 **...why it doesn't need pre-training**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md) (Thompson Sampling ≠ LLM Fine-Tuning section)
 
 **...how to reduce cold start problems**: → [COLD_START.md](COLD_START.md)
+
+**...sample efficiency (PCA, Hybrid Routing)**: → [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) (Hybrid Routing section) + [COLD_START.md](COLD_START.md)
 
 **...how to prove cost savings**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md)
 
@@ -168,10 +173,10 @@ Model pricing table and automated sync workflow.
 | Document | Status | Last Updated |
 |----------|--------|--------------|
 | LITELLM_INTEGRATION.md | ✅ Complete | 2025-11-21 |
-| BANDIT_ALGORITHMS.md | ✅ Complete | 2025-11-21 |
+| BANDIT_ALGORITHMS.md | ✅ Complete + Hybrid Routing | 2025-01-22 |
 | MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
 | BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
-| COLD_START.md | ✅ Complete | 2025-11-19 |
+| COLD_START.md | ✅ Complete + PCA/Hybrid refs | 2025-01-22 |
 | BENCHMARK_STRATEGY.md | ✅ Complete | 2025-11-19 |
 | IMPLICIT_FEEDBACK.md | ✅ Complete | 2025-11-19 |
 | ARCHITECTURE.md | ✅ Complete | 2025-11-18 |
