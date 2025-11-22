@@ -48,6 +48,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
+        success_threshold: float = 0.85,
     ) -> None:
         """Initialize Thompson Sampling algorithm.
 
@@ -60,6 +61,8 @@ class ThompsonSamplingBandit(BanditAlgorithm):
                 (quality: 0.70, cost: 0.20, latency: 0.10)
             window_size: Sliding window size for non-stationarity.
                 0 = unlimited history (default), N = keep only last N rewards per arm
+            success_threshold: Reward threshold for counting successes (default: 0.85)
+                Only used for statistics, not algorithm decisions
 
         Example:
             >>> arms = [
@@ -77,6 +80,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         self.prior_alpha = prior_alpha
         self.prior_beta = prior_beta
         self.window_size = window_size
+        self.success_threshold = success_threshold
 
         # Multi-objective reward weights (Phase 3)
         if reward_weights is None:
@@ -194,7 +198,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
 
         # Track statistics
         self.arm_pulls[model_id] += 1  # Always increment for feedback count
-        if reward >= 0.85:
+        if reward >= self.success_threshold:
             self.arm_successes[model_id] += 1
 
     def reset(self) -> None:

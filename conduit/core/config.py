@@ -87,6 +87,12 @@ class Settings(BaseSettings):
         ge=0,
         le=100000,
     )
+    bandit_success_threshold: float = Field(
+        default=0.85,
+        description="Reward threshold for counting a query as 'successful' (statistics only)",
+        ge=0.0,
+        le=1.0,
+    )
 
     # API Configuration
     api_rate_limit: int = Field(

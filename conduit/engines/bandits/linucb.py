@@ -56,6 +56,7 @@ class LinUCBBandit(BanditAlgorithm):
         random_seed: Optional[int] = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
+        success_threshold: float = 0.85,
     ) -> None:
         """Initialize LinUCB algorithm.
 
@@ -68,6 +69,8 @@ class LinUCBBandit(BanditAlgorithm):
                 (quality: 0.70, cost: 0.20, latency: 0.10)
             window_size: Sliding window size for non-stationarity.
                 0 = unlimited history (default), N = keep only last N observations per arm
+            success_threshold: Reward threshold for counting successes (default: 0.85)
+                Only used for statistics, not algorithm decisions
 
         Example:
             >>> arms = [
@@ -85,6 +88,7 @@ class LinUCBBandit(BanditAlgorithm):
         self.alpha = alpha
         self.feature_dim = feature_dim
         self.window_size = window_size
+        self.success_threshold = success_threshold
 
         # Multi-objective reward weights (Phase 3)
         if reward_weights is None:
@@ -262,7 +266,7 @@ class LinUCBBandit(BanditAlgorithm):
 
         # Track statistics
         self.arm_pulls[model_id] += 1
-        if reward >= 0.85:  # Success threshold
+        if reward >= self.success_threshold:
             self.arm_successes[model_id] += 1
 
     def reset(self) -> None:
