@@ -55,6 +55,9 @@ dev = [
     "mypy>=1.18.0",
     "types-redis>=4.6.0",
 ]
+litellm = [
+    "litellm>=1.74.9",
+]
 
 [project.scripts]
 conduit = "conduit.cli.main:cli"
@@ -65,7 +68,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["conduit*"]
+include = ["conduit*", "conduit_litellm*"]
 
 [tool.black]
 line-length = 88
