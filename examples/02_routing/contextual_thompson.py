@@ -54,7 +54,7 @@ async def main() -> None:
     service = await create_service(default_result_type=AnalysisResult)
 
     # Get model arms from service
-    arms = list(service.router.bandit.arm_list)
+    arms = list(service.router.bandit.arms.values())
 
     # Create Contextual Thompson Sampling bandit
     bandit = ContextualThompsonSamplingBandit(
