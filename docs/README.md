@@ -109,7 +109,7 @@ Model pricing table and automated sync workflow.
 
 **...how to reduce cold start problems**: → [COLD_START.md](COLD_START.md)
 
-**...sample efficiency (PCA, Hybrid Routing)**: → [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) (Hybrid Routing section) + [COLD_START.md](COLD_START.md)
+**...sample efficiency (PCA, Hybrid Routing)**: → [HYBRID_ROUTING.md](HYBRID_ROUTING.md) + [PCA_GUIDE.md](PCA_GUIDE.md)
 
 **...how to prove cost savings**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md)
 
@@ -172,11 +172,13 @@ Model pricing table and automated sync workflow.
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
+| HYBRID_ROUTING.md | ✅ Complete | 2025-11-22 |
+| PCA_GUIDE.md | ✅ Complete | 2025-11-22 |
 | LITELLM_INTEGRATION.md | ✅ Complete | 2025-11-21 |
-| BANDIT_ALGORITHMS.md | ✅ Complete + Hybrid Routing | 2025-01-22 |
+| BANDIT_ALGORITHMS.md | ✅ Complete + Hybrid Routing | 2025-11-22 |
 | MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
 | BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
-| COLD_START.md | ✅ Complete + PCA/Hybrid refs | 2025-01-22 |
+| COLD_START.md | ✅ Complete + PCA/Hybrid refs | 2025-11-22 |
 | BENCHMARK_STRATEGY.md | ✅ Complete | 2025-11-19 |
 | IMPLICIT_FEEDBACK.md | ✅ Complete | 2025-11-19 |
 | ARCHITECTURE.md | ✅ Complete | 2025-11-18 |
