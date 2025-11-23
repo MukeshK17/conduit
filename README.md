@@ -10,7 +10,9 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 
 - **ML-Driven Routing**: Learns from usage patterns vs static IF/ELSE rules
 - **Multi-Objective Optimization**: Balance cost, latency, and quality constraints
-- **Provider-Agnostic**: Works with OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace via PydanticAI
+- **Flexible Provider Support**:
+  - Direct: 8 providers via PydanticAI - OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace (structured outputs, type safety)
+  - Extended: 100+ providers via LiteLLM integration (see `conduit_litellm/` and `docs/LITELLM_INTEGRATION.md`)
 - **Dual Feedback Loop**: Explicit (user ratings) + Implicit (errors, latency, retries)
 - **Redis Caching**: 10-40x performance improvement on repeated queries
 - **Graceful Degradation**: Core routing works without Redis
@@ -48,7 +50,9 @@ asyncio.run(main())
 ### Prerequisites
 
 - Python 3.10+ (3.13 recommended)
-- LLM API keys (OpenAI, Anthropic, Google, or Groq) - at least one required
+- **LLM API Keys** (at least one required):
+  - Direct support: OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace
+  - For 100+ providers: Use LiteLLM integration (see `conduit_litellm/`)
 - Redis instance (optional - for caching and retry detection)
 - PostgreSQL database (optional - for query history persistence)
   - Works with any provider: self-hosted, AWS RDS, Supabase, Neon, Railway, etc.
@@ -117,7 +121,8 @@ See `migrations/DEPLOYMENT.md` for detailed migration instructions.
 ## Tech Stack
 
 - **Python 3.10+**
-- **PydanticAI 1.14+** (unified LLM interface)
+- **PydanticAI 1.14+** (LLM interface for direct provider support)
+- **LiteLLM** (optional - for 100+ provider support via `conduit_litellm/`)
 - **FastAPI** (REST API)
 - **PostgreSQL** (routing history)
 - **scikit-learn** (ML algorithms)
@@ -153,7 +158,7 @@ Query → Embedding → ML Routing Engine → LLM Provider → Response
 **Routing Process**:
 1. Analyze query (embedding, features)
 2. ML model predicts optimal route
-3. Execute via PydanticAI
+3. Execute via PydanticAI (direct) or LiteLLM (100+ providers)
 4. Collect feedback
 5. Update routing model
 
@@ -202,7 +207,7 @@ All algorithms support:
 - ✅ **Dynamic Pricing & Model Discovery**
   - Auto-fetch 71+ models from llm-prices.com (24h cache)
   - Auto-detect available models based on API keys
-  - Provider filtering (only models with PydanticAI + pricing support)
+  - Supports both PydanticAI (direct) and LiteLLM (extended) providers
 
 ### Phase 3 Completed (2025-11-21)
 - ✅ **Multi-Objective Reward Function**
