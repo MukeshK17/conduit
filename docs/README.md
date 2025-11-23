@@ -133,6 +133,28 @@ Detailed documentation of the implicit feedback system.
 
 ---
 
+### [MEASUREMENT_STRATEGY.md](MEASUREMENT_STRATEGY.md) - Quality Assessment & Tracking
+
+Three-tier measurement strategy for routing quality and performance tracking.
+
+**Tier 1 - Core Metrics** ✅:
+- Regret calculation (vs oracle, random, always-best)
+- Quality trends (7-day moving average)
+- Cost efficiency metrics
+
+**Tier 2 - Automated Evaluation** (Partial ✅):
+- Arbiter LLM-as-judge integration ✅ (commits: 0598f61, a1ceb96)
+- pgvector embeddings database 📋
+
+**Tier 3 - Advanced Analysis** 📋:
+- Loom batch pipelines for A/B testing
+- Query pattern clustering
+- Real-time metrics dashboard
+
+**Related**: See [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) for automatic feedback loop from LiteLLM
+
+---
+
 ### [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) - Algorithm Reference
 
 Comprehensive documentation of all bandit algorithms.
@@ -224,6 +246,8 @@ Strategic analysis and implementation plans for LiteLLM integration.
 **...the bandit algorithms**: → [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md)
 
 **...LiteLLM integration options**: → [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md)
+
+**...measurement and quality tracking**: → [MEASUREMENT_STRATEGY.md](MEASUREMENT_STRATEGY.md)
 
 **...the overall system design**: → [ARCHITECTURE.md](ARCHITECTURE.md)
 

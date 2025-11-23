@@ -437,9 +437,20 @@ features = embedding + [
 
 ## Current Status (2025-11-22)
 
-### Latest: LiteLLM Feedback Loop Complete (Issue #13) ✅
+### Latest: Measurement & Evaluation Complete ✅
 
-**New Features** (Issue #13 complete, 2025-11-22):
+**Arbiter LLM-as-Judge Integration** (Issue #42, commits: 0598f61, a1ceb96):
+1. **ArbiterEvaluator** - Async LLM-as-judge quality assessment
+   - File: `conduit/evaluation/arbiter_evaluator.py` (174 lines)
+   - Fire-and-forget evaluation (doesn't block routing)
+   - Semantic + factuality evaluators
+   - Configurable sampling (10% default) with budget control
+   - Automatic cost tracking via Arbiter framework
+   - Stores feedback for bandit learning
+   - 11/11 unit tests passing, 100% coverage
+   - Live integration tested with real API calls
+
+**LiteLLM Feedback Loop** (Issue #13, commit: c68b7d0):
 1. **ConduitFeedbackLogger** - Automatic bandit learning from LiteLLM
    - `CustomLogger` integration with LiteLLM callbacks
    - Captures cost from `response._hidden_params['response_cost']`

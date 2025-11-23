@@ -186,11 +186,28 @@ All algorithms support:
 
 ## Current Status
 
-**Phase**: 3 Complete + Performance Optimizations Shipped
-**Version**: 0.0.4-alpha
+**Phase**: 3 Complete + Performance Optimizations + Measurement Shipped
+**Version**: 0.0.5-alpha
 **Last Updated**: 2025-11-22
 
 ### Latest Updates (2025-11-22)
+
+- ✅ **Arbiter LLM-as-Judge Integration** - Automatic quality evaluation
+  - Async fire-and-forget evaluation (doesn't block routing)
+  - Semantic + factuality evaluators (commits: 0598f61, a1ceb96)
+  - Configurable sampling (10% default) with budget control ($10/day)
+  - 11/11 unit tests passing, 100% coverage
+  - Live integration tested with real API calls
+  - Stores feedback for bandit learning
+
+- ✅ **LiteLLM Feedback Loop** - Zero-config automatic learning
+  - ConduitFeedbackLogger with automatic bandit updates (commit: c68b7d0)
+  - Captures cost from LiteLLM response callbacks
+  - Feature regeneration from query text (stateless design)
+  - Supports hybrid and standard routing modes
+  - 19 comprehensive unit tests
+  - Closes Issue #13
+
 - ✅ **Hybrid Routing System** - 30% faster convergence
   - UCB1→LinUCB warm start strategy (commits: 834c2ef, 4093d2f)
   - Phase 1 (0-2K queries): UCB1 non-contextual exploration
