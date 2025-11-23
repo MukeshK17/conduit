@@ -17,6 +17,7 @@ from typing import Any
 
 import numpy as np
 
+from conduit.core.defaults import SUCCESS_THRESHOLD, THOMPSON_LAMBDA_DEFAULT
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -56,18 +57,18 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        lambda_reg: float = 1.0,
+        lambda_reg: float = THOMPSON_LAMBDA_DEFAULT,
         feature_dim: int = 387,  # 384 embedding + 3 metadata
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = 0.85,
+        success_threshold: float = SUCCESS_THRESHOLD,
     ) -> None:
         """Initialize Contextual Thompson Sampling algorithm.
 
         Args:
             arms: List of available model arms
-            lambda_reg: Regularization parameter / noise precision (default: 1.0)
+            lambda_reg: Regularization parameter / noise precision (default: THOMPSON_LAMBDA_DEFAULT)
                 Higher = less uncertainty (tighter posterior), more regularization
             feature_dim: Dimensionality of context features (default: 387)
             random_seed: Random seed for reproducibility

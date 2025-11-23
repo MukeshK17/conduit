@@ -28,6 +28,7 @@ EPSILON_GREEDY_DEFAULT = 0.1  # Epsilon-greedy exploration rate (10%)
 EPSILON_DECAY_DEFAULT = 1.0  # No decay by default
 EPSILON_MIN_DEFAULT = 0.01  # Minimum epsilon after decay
 UCB1_C_DEFAULT = 1.5  # UCB1 confidence multiplier
+THOMPSON_LAMBDA_DEFAULT = 1.0  # Thompson Sampling regularization (noise precision)
 
 # =============================================================================
 # FEATURE EXTRACTION

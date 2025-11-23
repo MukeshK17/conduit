@@ -15,6 +15,12 @@ from collections import deque
 
 import numpy as np
 
+from conduit.core.defaults import (
+    EPSILON_DECAY_DEFAULT,
+    EPSILON_GREEDY_DEFAULT,
+    EPSILON_MIN_DEFAULT,
+    SUCCESS_THRESHOLD,
+)
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -43,21 +49,21 @@ class EpsilonGreedyBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        epsilon: float = 0.1,
-        decay: float = 1.0,
-        min_epsilon: float = 0.01,
+        epsilon: float = EPSILON_GREEDY_DEFAULT,
+        decay: float = EPSILON_DECAY_DEFAULT,
+        min_epsilon: float = EPSILON_MIN_DEFAULT,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = 0.85,
+        success_threshold: float = SUCCESS_THRESHOLD,
     ) -> None:
         """Initialize Epsilon-Greedy algorithm.
 
         Args:
             arms: List of available model arms
-            epsilon: Initial exploration probability (default: 0.1 = 10% exploration)
-            decay: Epsilon decay multiplier per query (default: 1.0 = no decay)
-            min_epsilon: Minimum epsilon value after decay (default: 0.01)
+            epsilon: Initial exploration probability (default: EPSILON_GREEDY_DEFAULT)
+            decay: Epsilon decay multiplier per query (default: EPSILON_DECAY_DEFAULT)
+            min_epsilon: Minimum epsilon value after decay (default: EPSILON_MIN_DEFAULT)
             random_seed: Random seed for reproducibility
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)

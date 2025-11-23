@@ -18,6 +18,7 @@ from typing import Any
 
 import numpy as np
 
+from conduit.core.defaults import LINUCB_ALPHA_DEFAULT, SUCCESS_THRESHOLD
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -53,18 +54,18 @@ class LinUCBBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        alpha: float = 1.0,
+        alpha: float = LINUCB_ALPHA_DEFAULT,
         feature_dim: int = 387,  # 384 embedding + 3 metadata
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = 0.85,
+        success_threshold: float = SUCCESS_THRESHOLD,
     ) -> None:
         """Initialize LinUCB algorithm.
 
         Args:
             arms: List of available model arms
-            alpha: Exploration parameter (higher = more exploration, default: 1.0)
+            alpha: Exploration parameter (higher = more exploration, default: LINUCB_ALPHA_DEFAULT)
             feature_dim: Dimensionality of context features (default: 387)
             random_seed: Random seed for reproducibility (not used in LinUCB)
             reward_weights: Multi-objective reward weights. If None, uses defaults

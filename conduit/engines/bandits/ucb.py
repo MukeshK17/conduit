@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 
+from conduit.core.defaults import SUCCESS_THRESHOLD, UCB1_C_DEFAULT
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -45,17 +46,17 @@ class UCB1Bandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        c: float = math.sqrt(2),
+        c: float = UCB1_C_DEFAULT,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = 0.85,
+        success_threshold: float = SUCCESS_THRESHOLD,
     ) -> None:
         """Initialize UCB1 algorithm.
 
         Args:
             arms: List of available model arms
-            c: Exploration parameter (default: sqrt(2) from UCB1 paper)
+            c: Exploration parameter (default: UCB1_C_DEFAULT)
             random_seed: Random seed for tie-breaking
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
