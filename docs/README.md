@@ -23,7 +23,7 @@ Comprehensive technical documentation for understanding and working with Conduit
 1. [COLD_START.md](COLD_START.md) - Understand the cold start problem
 2. [HYBRID_ROUTING.md](HYBRID_ROUTING.md) - Implement UCB1→LinUCB warm start (30% faster)
 3. [PCA_GUIDE.md](PCA_GUIDE.md) - Add dimensionality reduction (75% sample reduction)
-4. `../examples/04_pca/` - Working examples
+4. `../examples/03_optimization/` - Working examples
 
 **Combined Impact**: 1,500-2,500 queries to production (vs 10,000+ baseline)
 
@@ -33,7 +33,7 @@ Comprehensive technical documentation for understanding and working with Conduit
 
 **LiteLLM Plugin** (20 minutes):
 1. [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) - Understand the plugin strategy
-2. `../examples/04_litellm/demo.py` - Working integration example
+2. `../conduit_litellm/` - LiteLLM integration module
 3. `../docker-compose.openwebui.yml` - Full stack with Open WebUI
 
 **Result**: Access 100+ LLM providers with ML-powered routing
@@ -255,13 +255,13 @@ Strategic analysis and implementation plans for LiteLLM integration.
 
 ### I want to implement...
 
-**...model discovery**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (API Reference) + `examples/01_quickstart/model_discovery.py`
+**...model discovery**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (API Reference) + `examples/01_quickstart/hello_world.py`
 
 **...hybrid routing**: → [HYBRID_ROUTING.md](HYBRID_ROUTING.md) + `Router(use_hybrid=True)`
 
-**...PCA reduction**: → [PCA_GUIDE.md](PCA_GUIDE.md) + `examples/04_pca/pca_setup.py`
+**...PCA reduction**: → [PCA_GUIDE.md](PCA_GUIDE.md) + `examples/03_optimization/`
 
-**...LiteLLM integration**: → [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) + `examples/04_litellm/demo.py`
+**...LiteLLM integration**: → [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) + `conduit_litellm/`
 
 **...a benchmark comparison**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) (Execution Flow)
 
@@ -281,7 +281,7 @@ Test: Run your first query
 ### Path 2: Optimized Routing (1 hour)
 ```
 Read: COLD_START.md → HYBRID_ROUTING.md → PCA_GUIDE.md
-Code: examples/04_pca/pca_setup.py (one-time training)
+Code: examples/03_optimization/ (working examples)
 Code: Router(use_hybrid=True, use_pca=True)
 Test: Verify 85-90% sample reduction
 ```
@@ -289,7 +289,7 @@ Test: Verify 85-90% sample reduction
 ### Path 3: LiteLLM Integration (30 minutes)
 ```
 Read: LITELLM_INTEGRATION.md
-Code: examples/04_litellm/demo.py
+Code: conduit_litellm/ (integration module)
 Deploy: docker-compose.openwebui.yml (full stack)
 Test: Access via OpenAI-compatible API
 ```
@@ -353,15 +353,16 @@ Monitor: Quality, cost, latency metrics
 
 | Document | Lines | Last Updated | Status |
 |----------|-------|--------------|--------|
+| BANDIT_ALGORITHMS.md | 1,084 | 2025-11-22 | ✅ Complete |
+| BANDIT_TRAINING.md | 542 | 2025-11-23 | ✅ Complete |
 | HYBRID_ROUTING.md | 461 | 2025-01-22 | ✅ Complete |
 | PCA_GUIDE.md | 574 | 2025-01-22 | ✅ Complete |
-| BANDIT_ALGORITHMS.md | 1,084 | 2025-11-22 | ✅ Complete |
 | COLD_START.md | 640 | 2025-01-22 | ✅ Complete |
 | MODEL_DISCOVERY.md | 584 | 2025-11-20 | ✅ Complete |
 | LITELLM_INTEGRATION.md | 591 | 2025-11-21 | ✅ Complete |
-| BANDIT_TRAINING.md | 443 | 2025-11-19 | ✅ Complete |
 | BENCHMARK_STRATEGY.md | 584 | 2025-11-19 | ✅ Complete |
 | IMPLICIT_FEEDBACK.md | 516 | 2025-11-19 | ✅ Complete |
+| MEASUREMENT_STRATEGY.md | 550 | 2025-11-22 | ✅ Complete |
 | ARCHITECTURE.md | 897 | 2025-11-18 | ✅ Complete |
 
 ---

@@ -1,19 +1,69 @@
 # Bandit Training Strategy
 
-**Key Insight**: Thompson Sampling (contextual bandits) is NOT like fine-tuning LLMs - it's fundamentally different.
+**Key Insight**: Bandit algorithms (contextual learning) are NOT like fine-tuning LLMs - they're fundamentally different.
 
-## Thompson Sampling ≠ LLM Fine-Tuning
+## Algorithm Selection
+
+Conduit implements **6 bandit algorithms** for different use cases:
+
+### Contextual Algorithms (Recommended)
+**Use query features** to make smarter routing decisions:
+
+1. **LinUCB** (Production Recommended)
+   - Ridge regression with upper confidence bound
+   - Best for: Production LLM routing with diverse queries
+   - Sample efficiency: 2,000-3,000 queries to converge
+   - File: `conduit/engines/bandits/linucb.py`
+
+2. **Contextual Thompson Sampling**
+   - Bayesian linear regression approach
+   - Best for: When Bayesian uncertainty estimation is valuable
+   - Sample efficiency: Similar to LinUCB
+   - File: `conduit/engines/bandits/contextual_thompson_sampling.py`
+
+### Non-Contextual Algorithms
+**Ignore query features**, simpler but less effective:
+
+3. **Thompson Sampling**
+   - Beta distribution sampling per arm
+   - Best for: Simple workloads, baseline comparison
+   - Sample efficiency: 5,000-10,000 queries to converge
+   - File: `conduit/engines/bandits/thompson_sampling.py`
+
+4. **UCB1**
+   - Upper confidence bound with logarithmic exploration
+   - Best for: Fast non-contextual baseline
+   - Sample efficiency: 3,000-5,000 queries to converge
+   - File: `conduit/engines/bandits/ucb.py`
+
+5. **Epsilon-Greedy**
+   - Simple exploration (ε) vs exploitation (1-ε)
+   - Best for: Baseline comparison, simple testing
+   - Sample efficiency: 8,000-12,000 queries to converge
+   - File: `conduit/engines/bandits/epsilon_greedy.py`
+
+### Baselines (Non-Learning)
+**Fixed strategies** for comparison and fallback:
+
+6. **Baselines** (Random, AlwaysBest, AlwaysCheapest, Oracle)
+   - No learning, static routing rules
+   - Best for: Benchmarking, testing, cost analysis
+   - File: `conduit/engines/bandits/baselines.py`
+
+**Production Recommendation**: Use **LinUCB** (contextual) or **Hybrid Routing** (UCB1→LinUCB warm start) for best results. See [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) for comprehensive algorithm details.
+
+## Bandit Learning ≠ LLM Fine-Tuning
 
 ### Critical Differences
 
-| Aspect | LLM Fine-Tuning | Thompson Sampling (Bandits) |
-|--------|-----------------|----------------------------|
+| Aspect | LLM Fine-Tuning | Bandit Algorithms |
+|--------|-----------------|-------------------|
 | **Training Type** | Offline, pre-deployment | Online, during usage |
 | **Data Required** | Labeled training corpus | Real-time feedback |
-| **Computation** | GPU hours, expensive | Simple arithmetic (alpha++, beta++) |
-| **Parameters** | Neural network weights (millions) | Beta distribution (2 params per model) |
+| **Computation** | GPU hours, expensive | Simple matrix ops (contextual) or arithmetic (non-contextual) |
+| **Parameters** | Neural network weights (millions) | Small state (matrices per arm or Beta distributions) |
 | **Pre-Training** | Required before deployment | NOT needed - zero-shot deployment |
-| **Learning Speed** | Hours/days | Converges in 200-1000 queries |
+| **Learning Speed** | Hours/days | Converges in 1,500-15,000 queries (algorithm-dependent) |
 | **Cost** | $100s-$1000s in compute | Negligible |
 
 ### Why This Matters
@@ -47,9 +97,11 @@ for query in production_traffic:
 
 **Zero-shot deployment** - this is the magic! No training data, no GPU hours, no pre-deployment phase.
 
-## How Thompson Sampling Learns
+## How Bandit Algorithms Learn
 
-### Initialization: Uniform Priors
+**Note**: This section uses Thompson Sampling as an illustrative example. LinUCB (recommended) uses ridge regression instead of Beta distributions. See [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) for algorithm-specific details.
+
+### Initialization: Uniform Priors (Thompson Sampling Example)
 
 ```python
 # All models start equal - we know nothing
@@ -60,6 +112,13 @@ models = {
 }
 
 # This means: "Each model has 50% expected success rate, but high uncertainty"
+
+# LinUCB initialization (contextual alternative):
+# models = {
+#     "gpt-4o-mini": LinUCBState(A=I, b=0),  # Identity matrix + zero vector
+#     "gpt-4o": LinUCBState(A=I, b=0),
+#     ...
+# }
 ```
 
 ### Learning Phase: Feedback Accumulation
@@ -354,31 +413,68 @@ Measure variance in model distribution over rolling 1000-query windows:
 
 ## Implementation Details
 
-### Current Implementation
+### Algorithm-Specific Implementations
 
+Each algorithm has different internal mechanics. See [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) for comprehensive technical details.
+
+**Thompson Sampling Example** (non-contextual):
 ```python
-# conduit/engines/bandit.py
-class ContextualBandit:
-    def __init__(self, models: list[str]):
-        self.model_states = {
-            model: BanditState(alpha=1.0, beta=1.0)  # Uniform priors
-            for model in models
+# conduit/engines/bandits/thompson_sampling.py
+class ThompsonSamplingBandit:
+    def __init__(self, arms: list[ModelArm]):
+        self.arm_states = {
+            arm.model_id: BetaState(alpha=1.0, beta=1.0)  # Uniform priors
+            for arm in arms
         }
 
-    def select(self, features: QueryFeatures) -> str:
-        # Thompson Sampling: Sample from each Beta distribution
+    async def select_arm(self, features: QueryFeatures) -> ModelArm:
+        # Sample from each Beta distribution (ignores features)
         samples = {
-            model: np.random.beta(state.alpha, state.beta)
-            for model, state in self.model_states.items()
+            model_id: np.random.beta(state.alpha, state.beta)
+            for model_id, state in self.arm_states.items()
         }
-        return max(samples, key=samples.get)
+        return self.arms[max(samples, key=samples.get)]
 
-    def update(self, model: str, reward: float,
-               success_threshold: float = 0.7):
-        if reward >= success_threshold:
-            self.model_states[model].alpha += 1.0
+    async def update(self, feedback: BanditFeedback, features: QueryFeatures):
+        reward = feedback.calculate_reward()
+        if reward >= 0.7:  # Success threshold
+            self.arm_states[feedback.model_id].alpha += 1.0
         else:
-            self.model_states[model].beta += 1.0
+            self.arm_states[feedback.model_id].beta += 1.0
+```
+
+**LinUCB Example** (contextual, production recommended):
+```python
+# conduit/engines/bandits/linucb.py
+class LinUCBBandit:
+    def __init__(self, arms: list[ModelArm], alpha: float = 1.0):
+        self.arm_states = {
+            arm.model_id: LinUCBState(
+                A=np.identity(feature_dim),  # d×d matrix
+                b=np.zeros((feature_dim, 1))  # d×1 vector
+            )
+            for arm in arms
+        }
+
+    async def select_arm(self, features: QueryFeatures) -> ModelArm:
+        # Uses features for contextual decision
+        x = self._extract_features(features)  # 387-dim vector
+
+        ucb_values = {}
+        for model_id, state in self.arm_states.items():
+            theta = np.linalg.solve(state.A, state.b)  # Ridge regression
+            ucb = theta.T @ x + self.alpha * np.sqrt(x.T @ np.linalg.inv(state.A) @ x)
+            ucb_values[model_id] = ucb[0, 0]
+
+        return self.arms[max(ucb_values, key=ucb_values.get)]
+
+    async def update(self, feedback: BanditFeedback, features: QueryFeatures):
+        x = self._extract_features(features)
+        reward = feedback.calculate_reward()
+
+        # Update matrices
+        self.arm_states[feedback.model_id].A += x @ x.T
+        self.arm_states[feedback.model_id].b += reward * x
 ```
 
 ### Key Parameters
@@ -437,7 +533,9 @@ bandit.reset(retain_fraction=0.0)  # Back to uniform priors
 
 ## References
 
-- **Implementation**: `conduit/engines/bandit.py`
-- **Feedback System**: `docs/IMPLICIT_FEEDBACK.md`
-- **Cold Start Solutions**: `docs/COLD_START.md`
-- **Benchmark Strategy**: `docs/BENCHMARK_STRATEGY.md`
+- **Algorithm Details**: [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) - Comprehensive reference for all 6 algorithms
+- **Implementation Files**: `conduit/engines/bandits/*.py` - All algorithm implementations
+- **Feedback System**: [IMPLICIT_FEEDBACK.md](IMPLICIT_FEEDBACK.md) - Automatic behavioral signals
+- **Cold Start Solutions**: [COLD_START.md](COLD_START.md) - Reducing sample requirements
+- **Hybrid Routing**: [HYBRID_ROUTING.md](HYBRID_ROUTING.md) - UCB1→LinUCB warm start
+- **Benchmark Strategy**: [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Proving cost savings
