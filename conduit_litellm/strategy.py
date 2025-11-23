@@ -254,10 +254,12 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             Selected deployment dictionary from litellm.router.model_list.
 
         Note:
-            This method uses asyncio.run() internally, which may not work
-            in environments with existing event loops. Use async version when possible.
+            This method handles both sync and async contexts correctly.
+            Use async_get_available_deployment when possible for better performance.
         """
         import asyncio
+        import concurrent.futures
+        import threading
 
         try:
             # Try to get running event loop
@@ -270,16 +272,21 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                 )
             )
         else:
-            # Event loop already running, create task
+            # Event loop already running - run in thread to avoid RuntimeError
             logger.warning(
                 "Using sync get_available_deployment in async context. "
                 "Consider using async_get_available_deployment instead."
             )
-            return loop.run_until_complete(
-                self.async_get_available_deployment(
-                    model, messages, input, specific_deployment, request_kwargs
+
+            # Run async function in a new event loop in a separate thread
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.async_get_available_deployment(
+                        model, messages, input, specific_deployment, request_kwargs
+                    )
                 )
-            )
+                return future.result()
 
     def _extract_query_text(
         self,
