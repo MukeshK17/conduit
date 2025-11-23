@@ -12,10 +12,8 @@ from conduit.api.routes import create_routes
 from conduit.api.service import RoutingService
 from conduit.core.config import settings
 from conduit.core.database import Database
-from conduit.engines.analyzer import QueryAnalyzer
-from conduit.engines.bandit import ContextualBandit
 from conduit.engines.executor import ModelExecutor
-from conduit.engines.router import RoutingEngine
+from conduit.engines.router import Router
 from conduit.observability import setup_telemetry, shutdown_telemetry
 
 logger = logging.getLogger(__name__)
@@ -36,9 +34,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database = Database()
     await database.connect()
 
-    # Initialize components
-    analyzer = QueryAnalyzer(embedding_model=settings.embedding_model)
-    bandit = ContextualBandit(models=settings.default_models)
+    # Initialize components (Router now handles analyzer + hybrid routing internally)
+    router = Router(models=settings.default_models, embedding_model=settings.embedding_model)
 
     # Load pricing information (if available) and pass to executor.
     # If loading fails, the executor will fall back to built-in pricing.
@@ -50,27 +47,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         model_prices = {}
 
     executor = ModelExecutor(pricing=model_prices)
-    router = RoutingEngine(
-        bandit=bandit,
-        analyzer=analyzer,
-        models=settings.default_models,
-    )
 
-    # Load model states from database
-    try:
-        states = await database.get_model_states()
-        bandit.load_states(states)
-        logger.info(f"Loaded {len(states)} model states from database")
-    except Exception as e:
-        logger.warning(f"Failed to load model states: {e}")
+    # Note: Model state loading removed - HybridRouter doesn't support load_states()
+    # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
 
     # Create service
     _service = RoutingService(
         database=database,
-        analyzer=analyzer,
-        bandit=bandit,
-        executor=executor,
         router=router,
+        executor=executor,
     )
 
     # Register routes

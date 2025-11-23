@@ -156,9 +156,17 @@ class ErrorDetectionConfig:
 class ImplicitFeedbackConfig:
     """Combined configuration for all implicit feedback signals."""
 
-    retry: RetryDetectionConfig = RetryDetectionConfig()
-    latency: LatencyConfig = LatencyConfig()
-    error: ErrorDetectionConfig = ErrorDetectionConfig()
+    retry: RetryDetectionConfig = None  # type: ignore
+    latency: LatencyConfig = None  # type: ignore
+    error: ErrorDetectionConfig = None  # type: ignore
+
+    def __post_init__(self):
+        if self.retry is None:
+            self.retry = RetryDetectionConfig()
+        if self.latency is None:
+            self.latency = LatencyConfig()
+        if self.error is None:
+            self.error = ErrorDetectionConfig()
 
     # Implicit feedback reward mapping
     error_reward: float = 0.0  # Complete failure

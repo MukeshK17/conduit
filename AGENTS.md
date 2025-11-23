@@ -15,6 +15,29 @@ last_updated: 2025-01-22
 
 ---
 
+## Quick Start (First Session Commands)
+
+**New to this repo? Run these 5 commands first:**
+
+```bash
+# 1. Verify you're on a feature branch (NEVER work on main)
+git status && git branch
+
+# 2. Install dependencies
+uv sync --all-extras && source .venv/bin/activate
+
+# 3. Run tests to verify environment
+uv run pytest tests/unit/test_bandits_linucb.py -v
+
+# 4. Check for any TODOs or placeholders (should be NONE)
+grep -r "TODO\|FIXME\|NotImplementedError" conduit/ || echo "✅ No placeholders found"
+
+# 5. Verify type checking works
+uv run mypy conduit/ --no-error-summary || echo "⚠️ Fix type errors before starting"
+```
+
+---
+
 ## Boundaries
 
 ### Always Do (No Permission Needed)
@@ -40,22 +63,22 @@ last_updated: 2025-01-22
 
 ### Ask First
 
-**Architecture Changes**:
-- Modifying base classes (`BanditAlgorithm`, `ModelArm`)
-- Changing API contracts (function signatures, return types)
-- Adding new dependencies to `pyproject.toml`
-- Changing database schema or migrations
+**Architecture Changes** (Why: Affects all dependent code):
+- Modifying base classes (`BanditAlgorithm`, `ModelArm`) - Changes break all algorithm implementations
+- Changing API contracts (function signatures, return types) - Breaking change for users
+- Adding new dependencies to `pyproject.toml` - Increases attack surface and maintenance burden
+- Changing database schema or migrations - Requires data migration plan and rollback strategy
 
-**Risky Operations**:
-- Deleting existing algorithms or features
-- Refactoring core routing logic
-- Modifying production configuration defaults
-- Changing test fixtures that affect many tests
+**Risky Operations** (Why: High blast radius):
+- Deleting existing algorithms or features - Users may depend on them
+- Refactoring core routing logic - Subtle bugs can break all routing
+- Modifying production configuration defaults - Can cause performance regression or cost spike
+- Changing test fixtures that affect many tests - Mass test failures obscure real issues
 
-**External Services**:
-- Adding new MCP servers or external APIs
-- Changing Redis/PostgreSQL connection patterns
-- Modifying authentication or rate limiting logic
+**External Services** (Why: Security and reliability implications):
+- Adding new MCP servers or external APIs - Security review needed
+- Changing Redis/PostgreSQL connection patterns - Can cause connection pool exhaustion
+- Modifying authentication or rate limiting logic - Security-critical, needs review
 
 ### Never Do
 
@@ -86,11 +109,156 @@ last_updated: 2025-01-22
 - Add features beyond explicit requirements
 - Create files outside designated directories
 
+**Detection Commands** (Run before committing):
+```bash
+# Check for security violations
+grep -r "API_KEY\|SECRET\|PASSWORD" conduit/ tests/ examples/ && echo "🚨 CREDENTIALS FOUND" || echo "✅ No credentials"
+
+# Check for code quality violations
+grep -r "TODO\|FIXME" conduit/ && echo "🚨 TODO comments found" || echo "✅ No TODOs"
+grep -r "# type: ignore" conduit/ | grep -v "justification:" && echo "⚠️ Unjustified type ignores" || echo "✅ Type ignores justified"
+
+# Check for anti-patterns
+grep -r "from typing import Any" conduit/ && echo "⚠️ Using Any - justify in comment" || echo "✅ No Any usage"
+
+# Verify on feature branch
+git branch --show-current | grep -E "^(main|master)$" && echo "🚨 ON MAIN BRANCH - CREATE FEATURE BRANCH" || echo "✅ On feature branch"
+```
+
 ---
 
 ## Communication Preferences
 
 Don't flatter me. I know what [AI sycophancy](https://www.seangoedecke.com/ai-sycophancy/) is and I don't want your praise. Be concise and direct. Don't use emdashes ever.
+
+---
+
+## Session Analysis & Continuous Improvement
+
+**When to Analyze** (Multiple Triggers):
+- During active sessions: After completing major tasks or every 30-60 minutes
+- When failures occur: Immediately analyze and update rules
+- Session end: Review entire session for patterns before closing
+- User corrections: Any time user points out a mistake
+
+**Identify Failures**:
+- Framework violations (boundaries crossed, rules ignored)
+- Repeated patterns (same mistake multiple times)
+- Rules that didn't prevent failures
+- User corrections (what needed fixing)
+
+**Analyze Each Failure**:
+- What rule should have prevented this?
+- Why didn't it work? (too vague, wrong priority, missing detection pattern)
+- What would have caught this earlier?
+
+**Update AGENTS.md** (In Real-Time):
+- Add new rules or strengthen existing rules immediately
+- Add detection patterns (git commands, test patterns, code patterns)
+- Include examples of violations and corrections
+- Update priority if rule was underweighted
+- Propose updates to user during session (don't wait until end)
+
+**Priority Levels**:
+- 🔴 **CRITICAL**: Security, credentials, production breaks → Update immediately, stop work
+- 🟡 **IMPORTANT**: Framework violations, repeated patterns → Update with detection patterns, continue work
+- 🟢 **RECOMMENDED**: Code quality, style issues → Update with examples, lowest priority
+
+**Example Pattern**:
+```
+Failure: Committed TODO comments in production code (violated "No Partial Features" rule)
+Detection: `grep -r "TODO" src/` before commit
+Rule Update: Add pre-commit check pattern to Boundaries section
+Priority: 🟡 IMPORTANT
+Action Taken: Proposed rule update to user mid-session, updated AGENTS.md
+```
+
+**Proactive Analysis**:
+- Before risky operations: Check if existing rules cover this scenario
+- After 3+ similar operations: Look for pattern that should be codified
+- When uncertainty arises: Document the decision-making gap
+
+---
+
+## Common Mistakes & How to Avoid Them
+
+### Mistake 1: Working on main/master Branch
+**Detection**: `git branch --show-current` shows "main" or "master"
+**Prevention**: Always run `git checkout -b feature/my-feature` before starting
+**Fix**: `git checkout -b feature/my-feature` then continue work
+**Why It Matters**: Direct commits to main bypass PR review and CI checks
+
+### Mistake 2: Skipping Tests to Make Build Pass
+**Detection**: Git history shows test files deleted or `@pytest.mark.skip` added
+**Prevention**: Run `pytest` before committing, fix failures not tests
+**Fix**: Revert test changes, fix implementation instead
+**Why It Matters**: Broken tests indicate broken code, not broken tests
+
+### Mistake 3: Adding Dependencies Without Consideration
+**Detection**: `git diff pyproject.toml` shows new dependencies
+**Prevention**: Ask first, check if existing deps can solve the problem
+**Fix**: Remove dependency, use standard library or existing deps
+**Why It Matters**: Each dependency increases security risk and maintenance burden
+
+### Mistake 4: Mixing Sync and Async Code
+**Detection**: Functions with `async def` calling sync blocking I/O
+**Prevention**: All I/O in bandit methods must be async
+**Fix**: Use `aiofiles`, `asyncpg`, `asyncio.to_thread()` for blocking calls
+**Why It Matters**: Blocks event loop, causes performance degradation
+
+### Mistake 5: Leaving TODO Comments in Production Code
+**Detection**: `grep -r "TODO" conduit/` returns matches
+**Prevention**: Complete feature fully or don't commit it
+**Fix**: Remove TODO, implement feature or remove partial code
+**Why It Matters**: Indicates incomplete work, confuses future developers
+
+### Mistake 6: Using `Any` Type Without Justification
+**Detection**: `grep -r "from typing import Any" conduit/` without `# justification:` comment
+**Prevention**: Use specific types or Union types instead
+**Fix**: Replace `Any` with correct type or add `# justification: dict values are mixed types`
+**Why It Matters**: Defeats purpose of type checking, hides bugs
+
+### Mistake 7: Ignoring Test Coverage Drop
+**Detection**: `pytest --cov=conduit` shows coverage below 80%
+**Prevention**: Write tests for all new code before committing
+**Fix**: Add missing tests until coverage >80%
+**Why It Matters**: Untested code will break in production
+
+---
+
+## Testing Decision Matrix
+
+**When to Mock:**
+- External API calls (OpenAI, Anthropic) - Use mocked responses
+- Database queries - Use in-memory SQLite or mocked connections
+- Redis cache - Use fakeredis library
+- File I/O - Use temporary directories with `pytest.tmp_path`
+- Time-dependent code - Mock `datetime.now()` for determinism
+
+**When to Use Real Dependencies:**
+- NumPy operations - Real numpy arrays (fast enough)
+- Pydantic validation - Real validation (catches schema issues)
+- Internal function calls - Real calls (integration testing)
+- Configuration loading - Real config objects
+- Exception handling - Real exceptions
+
+**Detection Pattern:**
+```python
+# ✅ GOOD - Mock external API
+@pytest.mark.asyncio
+async def test_router_with_mocked_llm(mocker):
+    mocker.patch("conduit.engines.router.call_llm", return_value="mocked response")
+
+# ✅ GOOD - Use real numpy
+async def test_linucb_feature_extraction():
+    features = QueryFeatures(embedding=[0.1]*384, ...)
+    bandit = LinUCBBandit(test_arms)
+    vector = bandit._extract_features(features)  # Real numpy operation
+
+# ❌ BAD - Using real API in tests
+async def test_router():
+    response = await call_openai_api(...)  # Slow, costs money, flaky
+```
 
 ---
 
@@ -349,13 +517,37 @@ git checkout -b feature/my-feature  # Create feature branch
 ```
 
 ### Development Cycle
-```bash
-# Make changes, then:
-pytest                  # Tests pass
-mypy conduit/           # Type checking clean
-ruff check conduit/     # Linting clean
-black conduit/          # Formatting applied
 
+**Pre-Commit Validation (Run ALL these checks):**
+```bash
+# 1. Tests must pass
+uv run pytest
+if [ $? -ne 0 ]; then echo "🚨 TESTS FAILED - DO NOT COMMIT"; exit 1; fi
+
+# 2. Type checking must be clean
+uv run mypy conduit/
+if [ $? -ne 0 ]; then echo "🚨 TYPE ERRORS - DO NOT COMMIT"; exit 1; fi
+
+# 3. Linting must be clean
+uv run ruff check conduit/
+if [ $? -ne 0 ]; then echo "🚨 LINT ERRORS - DO NOT COMMIT"; exit 1; fi
+
+# 4. Code must be formatted
+uv run black conduit/ --check
+if [ $? -ne 0 ]; then echo "⚠️ Running black formatter..."; uv run black conduit/; fi
+
+# 5. Coverage must be >80%
+uv run pytest --cov=conduit --cov-fail-under=80
+if [ $? -ne 0 ]; then echo "🚨 COVERAGE BELOW 80% - ADD TESTS"; exit 1; fi
+
+# 6. No TODOs or placeholders
+grep -r "TODO\|FIXME\|NotImplementedError" conduit/ && echo "🚨 REMOVE TODOs" && exit 1
+
+# 7. No credentials
+grep -r "API_KEY\|SECRET\|PASSWORD" conduit/ tests/ && echo "🚨 CREDENTIALS FOUND" && exit 1
+
+# All checks passed - safe to commit
+echo "✅ All checks passed - ready to commit"
 git add <files>
 git commit -m "Clear message describing what + why"
 ```

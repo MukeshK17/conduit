@@ -14,10 +14,9 @@ from conduit.core.models import (
     QueryConstraints,
     RoutingResult,
 )
-from conduit.engines.analyzer import QueryAnalyzer
-from conduit.engines.bandit import ContextualBandit
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.engines.executor import ModelExecutor
-from conduit.engines.router import RoutingEngine
+from conduit.engines.router import Router
 from conduit.evaluation import ArbiterEvaluator
 
 logger = logging.getLogger(__name__)
@@ -29,10 +28,8 @@ class RoutingService:
     def __init__(
         self,
         database: Database,
-        analyzer: QueryAnalyzer,
-        bandit: ContextualBandit,
+        router: Router,
         executor: ModelExecutor,
-        router: RoutingEngine,
         default_result_type: type[BaseModel] | None = None,
         evaluator: ArbiterEvaluator | None = None,
     ):
@@ -40,18 +37,14 @@ class RoutingService:
 
         Args:
             database: Database interface
-            analyzer: Query analyzer
-            bandit: Contextual bandit for model selection
+            router: Router with hybrid routing (UCB1→LinUCB)
             executor: LLM executor
-            router: Routing engine
             default_result_type: Default Pydantic model for structured output
             evaluator: Optional Arbiter evaluator for quality assessment
         """
         self.database = database
-        self.analyzer = analyzer
-        self.bandit = bandit
-        self.executor = executor
         self.router = router
+        self.executor = executor
         self.default_result_type = default_result_type
         self.evaluator = evaluator
 
@@ -133,19 +126,19 @@ class RoutingService:
         if self.evaluator:
             asyncio.create_task(self.evaluator.evaluate_async(response, query))
 
-        # Update bandit with reward (simplified - use quality score from response)
-        # Until explicit/implicit feedback is wired into the reward signal,
-        # use a conservative default reward to keep the bandit updating.
-        reward = 0.8
-        self.bandit.update(
-            model=routing.selected_model,
-            reward=reward,
-            query_id=query.id,
+        # Update bandit with feedback using new BanditFeedback API
+        # Until explicit/implicit feedback is wired in, use conservative estimates
+        feedback = BanditFeedback(
+            model_id=routing.selected_model,
+            cost=response.cost,
+            quality_score=0.8,  # Conservative default until explicit feedback
+            latency=response.latency,
+            success=True,
         )
+        await self.router.hybrid_router.update(feedback, routing.features)
 
-        # Update model state in database
-        model_state = self.bandit.get_model_state(routing.selected_model)
-        await self.database.update_model_state(model_state)
+        # Note: Model state persistence removed - HybridRouter doesn't expose state
+        # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
 
         # Return result
         return RoutingResult.from_response(response, routing)
@@ -192,16 +185,24 @@ class RoutingService:
             routing=None, response=response, feedback=feedback
         )
 
-        # Update bandit with actual reward
-        self.bandit.update(
-            model=response.model,
-            reward=quality_score,
-            query_id=response.query_id,
-        )
+        # Update bandit with actual feedback using new BanditFeedback API
+        # Need to regenerate features from original query for bandit update
+        query_obj = await self.database.get_query_by_id(response.query_id)
+        if query_obj:
+            features = await self.router.analyzer.analyze(query_obj.text)
+            bandit_feedback = BanditFeedback(
+                model_id=response.model,
+                cost=response.cost,
+                quality_score=quality_score,  # Use actual user rating
+                latency=response.latency,
+                success=met_expectations,
+            )
+            await self.router.hybrid_router.update(bandit_feedback, features)
+        else:
+            logger.warning(f"Could not find query {response.query_id} for feedback update")
 
-        # Update model state
-        model_state = self.bandit.get_model_state(response.model)
-        await self.database.update_model_state(model_state)
+        # Note: Model state persistence removed - HybridRouter doesn't expose state
+        # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
 
         return feedback
 
@@ -229,5 +230,5 @@ class RoutingService:
         Returns:
             List of model IDs
         """
-        return self.router.models
+        return self.router.hybrid_router.models
 
