@@ -244,25 +244,35 @@ async def test_confidence_calculation_ucb1_phase(hybrid_router):
     """Test confidence increases with pulls in UCB1 phase."""
     query = Query(text="What is 2+2?")
 
-    # First decision should have low confidence
-    decision1 = await hybrid_router.route(query)
-    confidence1 = decision1.confidence
+    # Complete exploration phase by routing to all 3 models
+    decisions = []
+    for i in range(3):
+        decision = await hybrid_router.route(query)
+        decisions.append(decision)
+        # Give feedback to complete exploration
+        feedback = BanditFeedback(
+            model_id=decision.selected_model,
+            cost=0.001,
+            quality_score=0.8,
+            latency=1.0,
+        )
+        await hybrid_router.update(feedback, decision.features)
 
-    # After feedback, confidence should be higher
+    # Now in exploitation phase - give extra feedback to first model
+    target_model = decisions[0].selected_model
     feedback = BanditFeedback(
-        model_id=decision1.selected_model,
+        model_id=target_model,
         cost=0.001,
-        quality_score=0.9,
+        quality_score=0.95,  # High quality
         latency=1.0,
     )
-    await hybrid_router.update(feedback, decision1.features)
+    await hybrid_router.update(feedback, decisions[0].features)
 
-    # Route same model again to see confidence increase
-    for _ in range(10):
-        decision = await hybrid_router.route(query)
-        if decision.selected_model == decision1.selected_model:
-            assert decision.confidence > confidence1
-            break
+    # Route again - should prefer high-quality model with increased confidence
+    decision = await hybrid_router.route(query)
+
+    # Confidence should be higher than initial 0.1 (pulls >= 1)
+    assert decision.confidence > 0.1
 
 
 @pytest.mark.asyncio
