@@ -1,10 +1,18 @@
 """OpenAI-compatible FastAPI server with Conduit + LiteLLM routing."""
 import os
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
+
+# Configure logging to see debug messages
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Conduit + LiteLLM Router", version="1.0.0")
 
@@ -17,58 +25,63 @@ api_keys = {
 }
 
 # Build model list from available keys
+# IMPORTANT: Multiple deployments per model allow Conduit to learn and route
 model_list = []
 
 if api_keys['OpenAI']:
+    # Multiple gpt-4o-mini deployments for Conduit to route between
     model_list.extend([
         {
             'model_name': 'gpt-4o-mini',
             'litellm_params': {'model': 'gpt-4o-mini', 'api_key': api_keys['OpenAI']},
-            'model_info': {'id': 'gpt-4o-mini-openai'},
+            'model_info': {'id': 'gpt-4o-mini-1'},
         },
         {
-            'model_name': 'gpt-4o',
-            'litellm_params': {'model': 'gpt-4o', 'api_key': api_keys['OpenAI']},
-            'model_info': {'id': 'gpt-4o-openai'},
+            'model_name': 'gpt-4o-mini',
+            'litellm_params': {'model': 'gpt-4o-mini', 'api_key': api_keys['OpenAI']},
+            'model_info': {'id': 'gpt-4o-mini-2'},
         },
     ])
 
 if api_keys['Anthropic']:
+    # Multiple Claude deployments for Conduit to route between
     model_list.extend([
         {
-            'model_name': 'claude-3-5-sonnet',
-            'litellm_params': {'model': 'claude-3-5-sonnet-20241022', 'api_key': api_keys['Anthropic']},
-            'model_info': {'id': 'claude-3-5-sonnet'},
+            'model_name': 'claude-3-5-haiku',
+            'litellm_params': {'model': 'claude-3-5-haiku-20241022', 'api_key': api_keys['Anthropic']},
+            'model_info': {'id': 'claude-3-5-haiku-1'},
         },
         {
             'model_name': 'claude-3-5-haiku',
             'litellm_params': {'model': 'claude-3-5-haiku-20241022', 'api_key': api_keys['Anthropic']},
-            'model_info': {'id': 'claude-3-5-haiku'},
+            'model_info': {'id': 'claude-3-5-haiku-2'},
         },
     ])
 
-if api_keys['Google']:
-    model_list.append({
-        'model_name': 'gemini-1.5-flash',
-        'litellm_params': {'model': 'gemini/gemini-1.5-flash', 'api_key': api_keys['Google']},
-        'model_info': {'id': 'gemini-1.5-flash'},
-    })
-
 if api_keys['Groq']:
-    model_list.append({
-        'model_name': 'llama-3.1-70b',
-        'litellm_params': {'model': 'groq/llama-3.1-70b-versatile', 'api_key': api_keys['Groq']},
-        'model_info': {'id': 'llama-3.1-70b-groq'},
-    })
+    # Multiple Groq model deployments
+    model_list.extend([
+        {
+            'model_name': 'llama-3.1-8b',
+            'litellm_params': {'model': 'groq/llama-3.1-8b-instant', 'api_key': api_keys['Groq']},
+            'model_info': {'id': 'llama-3.1-8b-1'},
+        },
+        {
+            'model_name': 'llama-3.1-8b',
+            'litellm_params': {'model': 'groq/llama-3.1-8b-instant', 'api_key': api_keys['Groq']},
+            'model_info': {'id': 'llama-3.1-8b-2'},
+        },
+    ])
 
 # Initialize router
 redis_url = os.getenv('REDIS_URL')
 router = Router(model_list=model_list, redis_host=redis_url if redis_url else None)
 
 # Set up Conduit routing strategy
-use_hybrid = os.getenv('USE_HYBRID_ROUTING', 'true').lower() == 'true'
-strategy = ConduitRoutingStrategy(use_hybrid=use_hybrid, cache_enabled=bool(redis_url))
+# Note: use_hybrid is removed - Router now always uses hybrid routing
+strategy = ConduitRoutingStrategy(cache_enabled=bool(redis_url))
 ConduitRoutingStrategy.setup_strategy(router, strategy)
+use_hybrid = True  # Always true now
 
 print(f"✅ Conduit + LiteLLM Router initialized")
 print(f"   Models: {len(model_list)}")
@@ -106,18 +119,25 @@ async def health():
 
 @app.get("/v1/models")
 async def list_models():
-    """OpenAI-compatible models endpoint."""
-    return {
-        "object": "list",
-        "data": [
-            {
-                "id": m["model_info"]["id"],
+    """OpenAI-compatible models endpoint.
+
+    Shows unique model_names (not deployment IDs) so Conduit can route between deployments.
+    """
+    # Get unique model names (not deployment IDs)
+    unique_models = {}
+    for m in model_list:
+        model_name = m["model_name"]
+        if model_name not in unique_models:
+            unique_models[model_name] = {
+                "id": model_name,  # Use model_name as ID, not deployment ID
                 "object": "model",
                 "created": 1677610602,
                 "owned_by": m["litellm_params"]["model"].split("/")[0] if "/" in m["litellm_params"]["model"] else "openai"
             }
-            for m in model_list
-        ]
+
+    return {
+        "object": "list",
+        "data": list(unique_models.values())
     }
 
 
