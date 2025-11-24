@@ -12,8 +12,9 @@ last_updated: 2025-01-22
 
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
-**Current Phase**: Phase 3 complete + Performance optimizations shipped (Hybrid routing, PCA)
+**Current Phase**: Phase 3 complete + Performance optimizations + LiteLLM examples shipped
 **Test Health**: 88% (64/73 bandit tests passing), 87% coverage
+**Latest**: Issue #14 (LiteLLM examples) complete, Issue #47 (User preferences) in progress
 
 ---
 
