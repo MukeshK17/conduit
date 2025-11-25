@@ -295,5 +295,62 @@ def load_preference_weights(optimize_for: Literal["balanced", "quality", "cost",
         return defaults[optimize_for]
 
 
+def load_context_priors(context: str) -> dict[str, tuple[float, float]]:
+    """Load industry-wide priors for cold start optimization from conduit.yaml.
+
+    Context-specific priors provide different model performance expectations
+    based on query type (code, creative, analysis, simple_qa, general).
+
+    Priors are expressed as Beta distribution parameters (alpha, beta):
+    - Quality estimate = alpha / (alpha + beta)
+    - Prior strength = alpha + beta (higher = stronger confidence)
+
+    Args:
+        context: Query context type. Supported values:
+            - "code": Code generation, debugging, technical queries
+            - "creative": Creative writing, storytelling, content generation
+            - "analysis": Analytical reasoning, comparison, evaluation
+            - "simple_qa": Simple factual questions, straightforward queries
+            - "general": Default priors for unclassified queries
+
+    Returns:
+        Dictionary mapping model_id to (alpha, beta) tuples.
+        Returns empty dict if context not found or config unavailable.
+
+    Example:
+        >>> priors = load_context_priors("code")
+        >>> print(priors)
+        {"gpt-4o": (8500, 1500), "gpt-4o-mini": (7800, 2200), ...}
+        >>> alpha, beta = priors["gpt-4o"]
+        >>> quality = alpha / (alpha + beta)  # 0.85 (85% expected quality)
+    """
+    config_path = Path("conduit.yaml")
+
+    if not config_path.exists():
+        return {}
+
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+            if not isinstance(config, dict):
+                return {}
+            priors_config = config.get("priors", {})
+            if not isinstance(priors_config, dict):
+                return {}
+            context_priors = priors_config.get(context, {})
+            if not isinstance(context_priors, dict):
+                return {}
+
+            # Convert list [alpha, beta] to tuple (alpha, beta)
+            result: dict[str, tuple[float, float]] = {}
+            for model_id, params in context_priors.items():
+                if isinstance(params, (list, tuple)) and len(params) == 2:
+                    result[model_id] = (float(params[0]), float(params[1]))
+            return result
+    except Exception:
+        # Fallback to empty dict if YAML parsing fails
+        return {}
+
+
 # Global settings instance
 settings = Settings()
