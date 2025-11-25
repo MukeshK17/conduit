@@ -45,48 +45,49 @@ async def main() -> None:
     print(f"✅ Found {len(available_providers)} providers: {', '.join(available_providers)}\n")
 
     # Configure models from available providers
+    # KEY: Use same model_name "llm" for all models so Conduit can route between them
     model_list = []
 
     if api_keys["OpenAI"]:
         model_list.extend([
             {
-                "model_name": "gpt-4o-mini",
+                "model_name": "llm",  # Shared name - Conduit routes across all providers
                 "litellm_params": {"model": "gpt-4o-mini", "api_key": api_keys["OpenAI"]},
-                "model_info": {"id": "gpt-4o-mini"},
+                "model_info": {"id": "o4-mini"},  # Conduit's standardized model ID
             },
             {
-                "model_name": "gpt-4o",
+                "model_name": "llm",  # Same name - part of routing pool
                 "litellm_params": {"model": "gpt-4o", "api_key": api_keys["OpenAI"]},
-                "model_info": {"id": "gpt-4o"},
+                "model_info": {"id": "gpt-5"},  # Conduit's standardized model ID
             },
         ])
 
     if api_keys["Anthropic"]:
         model_list.extend([
             {
-                "model_name": "claude-3-5-sonnet",
+                "model_name": "llm",  # Same name - Conduit picks best
                 "litellm_params": {"model": "claude-3-5-sonnet-20241022", "api_key": api_keys["Anthropic"]},
-                "model_info": {"id": "claude-3-5-sonnet"},
+                "model_info": {"id": "claude-sonnet-4.5"},  # Conduit's standardized model ID
             },
             {
-                "model_name": "claude-3-5-haiku",
+                "model_name": "llm",  # Same name - part of pool
                 "litellm_params": {"model": "claude-3-5-haiku-20241022", "api_key": api_keys["Anthropic"]},
-                "model_info": {"id": "claude-3-5-haiku"},
+                "model_info": {"id": "claude-haiku-4.5"},  # Conduit's standardized model ID
             },
         ])
 
     if api_keys["Google"]:
         model_list.append({
-            "model_name": "gemini-1.5-flash",
+            "model_name": "llm",  # Same name - Conduit can choose Gemini
             "litellm_params": {"model": "gemini/gemini-1.5-flash", "api_key": api_keys["Google"]},
-            "model_info": {"id": "gemini-1.5-flash"},
+            "model_info": {"id": "gemini-2.0-flash"},  # Conduit's standardized model ID
         })
 
     if api_keys["Groq"]:
         model_list.append({
-            "model_name": "llama-3.1-70b",
+            "model_name": "llm",  # Same name - Conduit can choose Llama
             "litellm_params": {"model": "groq/llama-3.1-70b-versatile", "api_key": api_keys["Groq"]},
-            "model_info": {"id": "llama-3.1-70b"},
+            "model_info": {"id": "llama-3.1-70b-versatile"},  # No mapping, use LiteLLM ID
         })
 
     print(f"📋 Configured {len(model_list)} models:")
@@ -101,7 +102,8 @@ async def main() -> None:
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("✅ Conduit multi-provider routing activated\n")
+    print("✅ Conduit multi-provider routing activated")
+    print(f"🤖 Conduit will intelligently choose between {len(model_list)} models\n")
     print("=" * 70)
 
     # Test diverse queries
@@ -119,7 +121,7 @@ async def main() -> None:
 
         try:
             response = await router.acompletion(
-                model=model_list[0]["model_name"],  # Conduit selects optimal model
+                model="llm",  # Conduit selects optimal model from all providers
                 messages=[{"role": "user", "content": query}],
                 temperature=0.7,
             )
@@ -128,9 +130,9 @@ async def main() -> None:
             cost = response._hidden_params.get("response_cost", 0.0)
             content = response.choices[0].message.content
 
-            print(f"Model: {model_used}")
-            print(f"Cost: ~${cost:.6f}")
-            print(f"Response: {content[:150]}...")
+            print(f"✅ Conduit selected: {model_used}")
+            print(f"💰 Cost: ~${cost:.6f}")
+            print(f"📝 Response: {content[:150]}...")
 
         except Exception as e:
             print(f"❌ Error: {e}")

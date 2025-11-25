@@ -29,22 +29,23 @@ async def main() -> None:
     print("🚀 Custom Conduit Configuration Example\n")
 
     # Configure LiteLLM model list
+    # KEY: Use same model_name "gpt" for both models so Conduit can route between them
     model_list = [
         {
-            "model_name": "gpt-4o-mini",
+            "model_name": "gpt",  # Shared name - Conduit picks between these
             "litellm_params": {
                 "model": "gpt-4o-mini",
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
-            "model_info": {"id": "gpt-4o-mini"},
+            "model_info": {"id": "o4-mini"},  # Conduit's standardized model ID
         },
         {
-            "model_name": "gpt-4o",
+            "model_name": "gpt",  # Same name - part of routing pool
             "litellm_params": {
                 "model": "gpt-4o",
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
-            "model_info": {"id": "gpt-4o"},
+            "model_info": {"id": "gpt-5"},  # Conduit's standardized model ID
         },
     ]
 
@@ -56,6 +57,7 @@ async def main() -> None:
     print("   - Hybrid routing: UCB1 → LinUCB (30% faster convergence)")
     print("   - Redis caching: Enabled (if REDIS_URL set)")
     print("   - Embedding model: all-MiniLM-L6-v2")
+    print("   - Models: gpt-4o-mini (cheap), gpt-4o (capable)")
     print()
 
     strategy = ConduitRoutingStrategy(
@@ -80,14 +82,14 @@ async def main() -> None:
         print(f"[{label}] {query}")
 
         response = await router.acompletion(
-            model="gpt-4o-mini",
+            model="gpt",  # Conduit selects optimal model
             messages=[{"role": "user", "content": query}],
             temperature=0.7,
         )
 
-        print(f"   Model: {response.model}")
-        print(f"   Cost: ~${response._hidden_params.get('response_cost', 0.0):.6f}")
-        print(f"   Response: {response.choices[0].message.content[:80]}...")
+        print(f"   → Conduit selected: {response.model}")
+        print(f"   💰 Cost: ~${response._hidden_params.get('response_cost', 0.0):.6f}")
+        print(f"   📝 Response: {response.choices[0].message.content[:80]}...")
         print()
 
     print("✨ Hybrid routing learns quickly from early queries!")

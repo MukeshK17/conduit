@@ -28,22 +28,23 @@ async def main() -> None:
     print("🚀 Basic Conduit + LiteLLM Integration\n")
 
     # 2. Configure LiteLLM model list
+    # KEY: Use same model_name for multiple deployments so Conduit can choose
     model_list = [
         {
-            "model_name": "gpt-4o-mini",
+            "model_name": "gpt",  # Shared name - Conduit picks between these
             "litellm_params": {
-                "model": "gpt-4o-mini",
+                "model": "gpt-4o-mini",  # Fast, cheap model
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
-            "model_info": {"id": "gpt-4o-mini"},
+            "model_info": {"id": "o4-mini"},  # Conduit's standardized model ID
         },
         {
-            "model_name": "gpt-4o",
+            "model_name": "gpt",  # Same name - part of routing pool
             "litellm_params": {
-                "model": "gpt-4o",
+                "model": "gpt-4o",  # Slower, more capable model
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
-            "model_info": {"id": "gpt-4o"},
+            "model_info": {"id": "gpt-5"},  # Conduit's standardized model ID
         },
     ]
 
@@ -54,26 +55,36 @@ async def main() -> None:
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("✅ Conduit routing strategy activated\n")
+    print("✅ Conduit routing strategy activated")
+    print("📊 Available models: o4-mini (cheap), gpt-5 (capable)")
+    print("🤖 Conduit will learn which model is best for each query type\n")
 
-    # 5. Make requests (Conduit automatically selects best model)
+    # 5. Make requests - Conduit learns as it goes
     queries = [
-        "What is 2+2?",
-        "Explain quantum mechanics in detail."
+        ("What is 2+2?", "simple"),
+        ("Explain quantum mechanics in detail.", "complex"),
+        ("Translate 'hello' to Spanish", "simple"),
+        ("Write a detailed analysis of climate change impacts", "complex"),
+        ("What's 5 + 7?", "simple"),
     ]
 
-    for query in queries:
-        print(f"Query: {query}")
+    for i, (query, query_type) in enumerate(queries, 1):
+        print(f"[{i}/5] Query ({query_type}): {query[:50]}...")
 
         response = await router.acompletion(
-            model="gpt-4o-mini",  # Model group (Conduit selects specific one)
+            model="gpt",  # Conduit chooses between gpt-4o-mini and gpt-4o
             messages=[{"role": "user", "content": query}]
         )
 
-        print(f"Model: {response.model}")
-        print(f"Response: {response.choices[0].message.content[:100]}...\n")
+        # Show which model Conduit selected
+        selected = response.model
+        print(f"      → Conduit selected: {selected}")
+        print(f"      → Response: {response.choices[0].message.content[:80]}...\n")
 
-    print("✨ Done! Conduit learned from these requests and will improve over time.")
+    print("✨ Done! Conduit learned from these requests and will:")
+    print("   • Route simple queries to o4-mini (cheaper)")
+    print("   • Route complex queries to gpt-5 (better quality)")
+    print("   • Continuously improve routing decisions over time")
 
 
 if __name__ == "__main__":

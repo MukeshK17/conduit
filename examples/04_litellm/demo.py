@@ -55,26 +55,27 @@ async def main() -> None:
     print()
 
     # Configure LiteLLM model list
+    # KEY: Use same model_name "llm" for all models so Conduit can route between them
     model_list = []
 
     # OpenAI models
     if api_keys["OpenAI"]:
         model_list.extend([
             {
-                "model_name": "gpt-4o-mini",
+                "model_name": "llm",  # Shared name - Conduit routes across all models
                 "litellm_params": {
                     "model": "gpt-4o-mini",
                     "api_key": api_keys["OpenAI"],
                 },
-                "model_info": {"id": "gpt-4o-mini-openai"},
+                "model_info": {"id": "o4-mini"},  # Conduit's standardized model ID
             },
             {
-                "model_name": "gpt-4o",
+                "model_name": "llm",  # Same name - part of routing pool
                 "litellm_params": {
                     "model": "gpt-4o",
                     "api_key": api_keys["OpenAI"],
                 },
-                "model_info": {"id": "gpt-4o-openai"},
+                "model_info": {"id": "gpt-5"},  # Conduit's standardized model ID
             },
         ])
 
@@ -82,20 +83,20 @@ async def main() -> None:
     if api_keys["Anthropic"]:
         model_list.extend([
             {
-                "model_name": "claude-3-5-sonnet",
+                "model_name": "llm",  # Same name - Conduit can choose Claude
                 "litellm_params": {
                     "model": "claude-3-5-sonnet-20241022",
                     "api_key": api_keys["Anthropic"],
                 },
-                "model_info": {"id": "claude-3-5-sonnet"},
+                "model_info": {"id": "claude-sonnet-4.5"},  # Conduit's standardized model ID
             },
             {
-                "model_name": "claude-3-5-haiku",
+                "model_name": "llm",  # Same name - part of pool
                 "litellm_params": {
                     "model": "claude-3-5-haiku-20241022",
                     "api_key": api_keys["Anthropic"],
                 },
-                "model_info": {"id": "claude-3-5-haiku"},
+                "model_info": {"id": "claude-haiku-4.5"},  # Conduit's standardized model ID
             },
         ])
 
@@ -103,12 +104,12 @@ async def main() -> None:
     if api_keys["Google"]:
         model_list.extend([
             {
-                "model_name": "gemini-1.5-flash",
+                "model_name": "llm",  # Same name - Conduit can choose Gemini
                 "litellm_params": {
                     "model": "gemini/gemini-1.5-flash",
                     "api_key": api_keys["Google"],
                 },
-                "model_info": {"id": "gemini-1.5-flash"},
+                "model_info": {"id": "gemini-2.0-flash"},  # Conduit's standardized model ID
             },
         ])
 
@@ -116,12 +117,12 @@ async def main() -> None:
     if api_keys["Groq"]:
         model_list.extend([
             {
-                "model_name": "llama-3.1-70b",
+                "model_name": "llm",  # Same name - Conduit can choose Llama
                 "litellm_params": {
                     "model": "groq/llama-3.1-70b-versatile",
                     "api_key": api_keys["Groq"],
                 },
-                "model_info": {"id": "llama-3.1-70b-groq"},
+                "model_info": {"id": "llama-3.1-70b-versatile"},  # No mapping, use LiteLLM ID
             },
         ])
 
@@ -146,6 +147,7 @@ async def main() -> None:
     # Set Conduit as custom routing strategy using helper method
     ConduitRoutingStrategy.setup_strategy(router, conduit_strategy)
     print("✅ Conduit routing strategy activated!")
+    print(f"🤖 Conduit will intelligently choose between {len(model_list)} models")
     print()
 
     # Run test queries
@@ -168,7 +170,7 @@ async def main() -> None:
         try:
             # Make request through LiteLLM with Conduit routing
             response = await router.acompletion(
-                model=model_list[0]["model_name"],  # Model group (Conduit will select specific one)
+                model="llm",  # Conduit selects optimal model from all providers
                 messages=[{"role": "user", "content": query}],
                 temperature=0.7,
             )
@@ -177,7 +179,7 @@ async def main() -> None:
             content = response.choices[0].message.content
             model_used = response.model
 
-            print(f"✅ Model Selected: {model_used}")
+            print(f"✅ Conduit Selected: {model_used}")
             print(f"📝 Response: {content[:150]}{'...' if len(content) > 150 else ''}")
             print()
 

@@ -121,13 +121,13 @@ class TestDatabaseConnection:
         db = Database()
 
         # Initially not connected
-        assert db.client is None
+        assert db.pool is None
 
         await db.connect()
-        assert db.client is not None
+        assert db.pool is not None
 
         await db.disconnect()
-        assert db.client is None
+        assert db.pool is None
 
 
 class TestQueryOperations:

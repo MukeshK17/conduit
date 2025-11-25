@@ -10,10 +10,10 @@ import logging
 from typing import Any
 from uuid import uuid4
 
-from conduit.core.defaults import QUALITY_ESTIMATION_DEFAULTS
+from conduit.core.config import load_quality_estimation_config
 from conduit.core.models import Query, Response
 from conduit.engines.bandits.base import BanditFeedback
-from conduit_litellm.utils import extract_query_text
+from conduit_litellm.utils import extract_query_text, map_litellm_to_conduit
 
 logger = logging.getLogger(__name__)
 
@@ -108,20 +108,23 @@ class ConduitFeedbackLogger(CustomLogger):
                 )
                 return
 
-            # Calculate latency
-            latency = end_time - start_time
+            # Calculate latency in seconds (convert timedelta to float)
+            latency = (end_time - start_time).total_seconds()
 
-            # Get model ID and validate
-            model_id = kwargs.get("model", "unknown")
-            if model_id == "unknown":
+            # Get model ID from LiteLLM response (e.g., "gpt-4o-mini-2024-07-18")
+            litellm_model_id = kwargs.get("model", "unknown")
+            if litellm_model_id == "unknown":
                 logger.warning("No model ID in LiteLLM response, skipping feedback")
                 return
+
+            # Map LiteLLM model ID to Conduit format (e.g., "gpt-4o-mini-2024-07-18" → "o4-mini")
+            model_id = map_litellm_to_conduit(litellm_model_id)
 
             # Validate model exists in router's arms
             if not self._validate_model_id(model_id):
                 logger.warning(
-                    f"Model '{model_id}' not in router arms, skipping feedback "
-                    f"(available: {self._get_available_model_ids()})"
+                    f"Model '{model_id}' (LiteLLM: '{litellm_model_id}') not in router arms, "
+                    f"skipping feedback (available: {self._get_available_model_ids()})"
                 )
                 return
 
@@ -220,19 +223,23 @@ class ConduitFeedbackLogger(CustomLogger):
             if cost is None:
                 cost = 0.0
 
-            # Calculate latency
-            latency = end_time - start_time
+            # Calculate latency in seconds (convert timedelta to float)
+            latency = (end_time - start_time).total_seconds()
 
-            # Get model ID and validate
-            model_id = kwargs.get("model", "unknown")
-            if model_id == "unknown":
+            # Get model ID from LiteLLM response (e.g., "gpt-4o-mini-2024-07-18")
+            litellm_model_id = kwargs.get("model", "unknown")
+            if litellm_model_id == "unknown":
                 logger.warning("No model ID in failed request, skipping feedback")
                 return
+
+            # Map LiteLLM model ID to Conduit format (e.g., "gpt-4o-mini-2024-07-18" → "o4-mini")
+            model_id = map_litellm_to_conduit(litellm_model_id)
 
             # Validate model exists in router's arms
             if not self._validate_model_id(model_id):
                 logger.warning(
-                    f"Model '{model_id}' not in router arms, skipping failure feedback"
+                    f"Model '{model_id}' (LiteLLM: '{litellm_model_id}') not in router arms, "
+                    f"skipping failure feedback"
                 )
                 return
 
@@ -240,7 +247,7 @@ class ConduitFeedbackLogger(CustomLogger):
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=cost,
-                quality_score=QUALITY_ESTIMATION_DEFAULTS.failure_quality,
+                quality_score=load_quality_estimation_config()["failure_quality"],
                 latency=latency,
                 success=False,
                 metadata={
@@ -298,13 +305,15 @@ class ConduitFeedbackLogger(CustomLogger):
         Returns:
             True if model exists in arms, False otherwise
         """
-        # Check hybrid router arms
+        # Check hybrid router arms (both bandits share same arms list)
         if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
-            if hasattr(self.router.hybrid_router, "linucb_bandit"):
-                bandit = self.router.hybrid_router.linucb_bandit
+            # Try linucb first (always exists in hybrid router)
+            if hasattr(self.router.hybrid_router, "linucb"):
+                bandit = self.router.hybrid_router.linucb
                 return model_id in bandit.arms if bandit else False
-            if hasattr(self.router.hybrid_router, "ucb1_bandit"):
-                bandit = self.router.hybrid_router.ucb1_bandit
+            # Fallback to ucb1 (also always exists)
+            if hasattr(self.router.hybrid_router, "ucb1"):
+                bandit = self.router.hybrid_router.ucb1
                 return model_id in bandit.arms if bandit else False
 
         # Check standard bandit arms
@@ -319,13 +328,15 @@ class ConduitFeedbackLogger(CustomLogger):
         Returns:
             List of model IDs available in router
         """
-        # Check hybrid router
+        # Check hybrid router (both bandits share same arms)
         if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
-            if hasattr(self.router.hybrid_router, "linucb_bandit"):
-                bandit = self.router.hybrid_router.linucb_bandit
+            # Try linucb first (always exists in hybrid router)
+            if hasattr(self.router.hybrid_router, "linucb"):
+                bandit = self.router.hybrid_router.linucb
                 return list(bandit.arms.keys()) if bandit else []
-            if hasattr(self.router.hybrid_router, "ucb1_bandit"):
-                bandit = self.router.hybrid_router.ucb1_bandit
+            # Fallback to ucb1 (also always exists)
+            if hasattr(self.router.hybrid_router, "ucb1"):
+                bandit = self.router.hybrid_router.ucb1
                 return list(bandit.arms.keys()) if bandit else []
 
         # Check standard bandit
@@ -394,7 +405,7 @@ class ConduitFeedbackLogger(CustomLogger):
         Uses lightweight heuristics without LLM calls for fast, free estimation.
         More accurate than fixed base_quality, catches obvious failures.
 
-        Uses thresholds from QUALITY_ESTIMATION_DEFAULTS configuration.
+        Uses thresholds from quality_estimation configuration.
 
         Args:
             query_text: User query
@@ -410,34 +421,34 @@ class ConduitFeedbackLogger(CustomLogger):
             >>> estimate_quality("Explain quantum physics", "quantum quantum quantum...")
             0.50  # Repetitive content penalty
         """
-        cfg = QUALITY_ESTIMATION_DEFAULTS
+        cfg = load_quality_estimation_config()
 
         # Start with base quality for successful responses
-        quality = cfg.base_quality
+        quality = cfg["base_quality"]
 
         # Empty response
         if not response_text or not response_text.strip():
-            return cfg.empty_quality
+            return cfg["empty_quality"]
 
         response_clean = response_text.strip()
 
         # Very short response (likely truncated or incomplete)
-        if len(response_clean) < cfg.min_response_chars:
-            quality -= cfg.short_response_penalty
+        if len(response_clean) < cfg["min_response_chars"]:
+            quality -= cfg["penalties"]["short_response"]
 
         # Check for repetition (model looping/stuck)
-        if self._has_repetition(response_clean, min_length=cfg.repetition_min_length):
-            quality -= cfg.repetition_penalty
+        if self._has_repetition(response_clean, min_length=cfg["thresholds"]["repetition_min_length"]):
+            quality -= cfg["penalties"]["repetition"]
 
         # Check keyword overlap (basic relevance)
         overlap = self._keyword_overlap(query_text, response_clean)
-        if overlap < cfg.keyword_overlap_very_low:
-            quality -= cfg.no_keyword_overlap_penalty
-        elif overlap < cfg.keyword_overlap_low:
-            quality -= cfg.low_keyword_overlap_penalty
+        if overlap < cfg["thresholds"]["keyword_overlap_very_low"]:
+            quality -= cfg["penalties"]["no_keyword_overlap"]
+        elif overlap < cfg["thresholds"]["keyword_overlap_low"]:
+            quality -= cfg["penalties"]["low_keyword_overlap"]
 
         # Clamp to reasonable range
-        return max(cfg.min_quality, min(cfg.max_quality, quality))
+        return max(cfg["bounds"]["min_quality"], min(cfg["bounds"]["max_quality"], quality))
 
     def _has_repetition(self, text: str, min_length: int | None = None) -> bool:
         """Detect repetitive patterns in text (model stuck/looping).
@@ -450,17 +461,19 @@ class ConduitFeedbackLogger(CustomLogger):
             True if significant repetition detected
         """
         if min_length is None:
-            min_length = QUALITY_ESTIMATION_DEFAULTS.repetition_min_length
+            cfg = load_quality_estimation_config()
+            min_length = cfg["thresholds"]["repetition_min_length"]
 
         if len(text) < min_length * 2:
             return False
 
         # Check for repeated substrings
+        cfg = load_quality_estimation_config()
         for pattern_len in range(min_length, len(text) // 2):
             pattern = text[:pattern_len]
             # Count occurrences
             occurrences = text.count(pattern)
-            if occurrences >= QUALITY_ESTIMATION_DEFAULTS.repetition_occurrence_threshold:
+            if occurrences >= cfg["thresholds"]["repetition_threshold"]:
                 return True
 
         return False
@@ -469,7 +482,6 @@ class ConduitFeedbackLogger(CustomLogger):
         """Calculate keyword overlap between two texts.
 
         Simple relevance proxy: what fraction of query keywords appear in response?
-        Uses stopwords from QUALITY_ESTIMATION_DEFAULTS configuration.
 
         Args:
             text1: First text (query)
@@ -482,9 +494,13 @@ class ConduitFeedbackLogger(CustomLogger):
         words1 = set(text1.lower().split())
         words2 = set(text2.lower().split())
 
-        # Remove stopwords from config
-        words1 = words1 - QUALITY_ESTIMATION_DEFAULTS.stopwords
-        words2 = words2 - QUALITY_ESTIMATION_DEFAULTS.stopwords
+        # Remove common stopwords
+        stopwords = frozenset({
+            "the", "a", "an", "and", "or", "but", "in", "on", "at",
+            "to", "for", "of", "is", "are", "was", "were",
+        })
+        words1 = words1 - stopwords
+        words2 = words2 - stopwords
 
         if not words1:
             return 0.0

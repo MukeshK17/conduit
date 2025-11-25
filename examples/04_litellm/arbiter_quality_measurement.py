@@ -17,7 +17,16 @@ Requirements:
 import asyncio
 import logging
 import os
+from pathlib import Path
 from uuid import uuid4
+
+# Load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parents[2] / ".env"
+    load_dotenv(env_path)
+except ImportError:
+    pass  # python-dotenv not installed, assume env vars are set
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,6 +65,7 @@ async def main():
     db = Database()
     await db.connect()
 
+    strategy = None  # Initialize for finally block
     try:
         # Initialize Arbiter evaluator
         # - sample_rate=0.1 means evaluate 10% of responses
@@ -69,22 +79,25 @@ async def main():
         )
 
         # Configure LiteLLM router with multiple models
+        # KEY: Use same model_name "llm" so Conduit can route between models
         logger.info("Setting up LiteLLM router...")
         router = Router(
             model_list=[
                 {
-                    "model_name": "gpt-4o-mini",
+                    "model_name": "llm",  # Shared name - Conduit routes between these
                     "litellm_params": {
                         "model": "gpt-4o-mini",
                         "api_key": os.getenv("OPENAI_API_KEY"),
                     },
+                    "model_info": {"id": "o4-mini"},  # Conduit's standardized model ID
                 },
                 {
-                    "model_name": "claude-3-haiku",
+                    "model_name": "llm",  # Same name - part of routing pool
                     "litellm_params": {
                         "model": "claude-3-haiku-20240307",
                         "api_key": os.getenv("ANTHROPIC_API_KEY"),
                     },
+                    "model_info": {"id": "claude-haiku-4.5"},  # Conduit's standardized model ID
                 },
             ],
             # LiteLLM debug for visibility
@@ -107,13 +120,14 @@ async def main():
         ]
 
         logger.info(f"\nMaking {len(test_queries)} test queries...\n")
+        logger.info("Note: Arbiter will evaluate ~10% of responses using LLM-as-judge\n")
 
         for i, query_text in enumerate(test_queries, 1):
             logger.info(f"Query {i}/{len(test_queries)}: {query_text[:50]}...")
 
             # LiteLLM routes through Conduit ML engine
             response = await router.acompletion(
-                model="gpt-4o-mini",  # Model group
+                model="llm",  # Conduit selects optimal model
                 messages=[{"role": "user", "content": query_text}],
             )
 
@@ -151,7 +165,8 @@ async def main():
     finally:
         # Clean up resources
         logger.info("\nCleaning up resources...")
-        strategy.cleanup()  # Unregister feedback logger
+        if strategy is not None:
+            strategy.cleanup()  # Unregister feedback logger
         await db.disconnect()  # Close database connection
 
 
