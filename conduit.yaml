@@ -30,10 +30,20 @@ routing:
       cost: 0.1       # Low cost concern
       latency: 0.5    # Minimize latency
 
-# Context-specific priors for Thompson Sampling cold start
-# Quality scores are converted to Beta distribution parameters (alpha, beta)
-# Higher values = expected higher quality for that context
-# Uses latest model names: gpt-5.1, claude-sonnet-4.5, gemini-2.5-pro, etc.
+# Context-specific priors for Thompson Sampling cold start optimization.
+# These priors help the bandit algorithm make better routing decisions before
+# it has collected enough data to learn model performance empirically.
+#
+# How it works:
+#   - Quality scores (0.0-1.0) represent expected success rate for each context
+#   - Scores are converted to Beta(alpha, beta) distribution parameters
+#   - Higher score = more confident the model performs well in that context
+#   - Prior strength is ~10,000 samples, so real observations gradually override
+#
+# Example: claude-sonnet-4.5: 0.92 for "code" means we expect 92% quality
+# on coding tasks, giving it a head start until real feedback proves otherwise.
+#
+# Model names must match your configured models in default_models above.
 priors:
   code:
     claude-sonnet-4.5: 0.92    # Best for code (SWE Bench leader)

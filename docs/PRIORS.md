@@ -51,8 +51,8 @@ Different query contexts have different optimal models:
 Best for: Code generation, debugging, technical queries
 
 Models excel differently at coding tasks. Based on LiveCodeBench and SWE-Bench:
-- Claude models show strong performance on agentic coding (SWE-Bench)
-- GPT-4o excels at code completion and generation
+- Claude Sonnet 4.5 leads on SWE-Bench (agentic coding)
+- GPT-5.1 excels at code completion and generation
 
 ### Creative Context
 Best for: Creative writing, storytelling, content generation
@@ -65,7 +65,7 @@ Based on creative writing benchmarks and qualitative assessments:
 Best for: Analytical reasoning, comparison, evaluation
 
 Based on GPQA and reasoning benchmarks:
-- Premium models (GPT-4o, Claude Opus) excel at complex analysis
+- Premium models (GPT-5.1, Claude Opus 4.5) excel at complex analysis
 - Significant quality gap vs smaller models on reasoning tasks
 
 ### Simple QA Context
@@ -92,8 +92,8 @@ Edit `conduit.yaml` directly:
 ```yaml
 priors:
   code:
-    gpt-4o: [8500, 1500]  # 85% quality estimate
-    gpt-4o-mini: [7800, 2200]  # 78% quality estimate
+    claude-sonnet-4.5: 0.92  # 92% quality estimate
+    gpt-5.1: 0.88            # 88% quality estimate
 ```
 
 ### Sync Script
@@ -163,11 +163,14 @@ def to_beta_params(quality: float, strength: int = 10000) -> tuple[int, int]:
 priors:
   # Context name (code, creative, analysis, simple_qa, general)
   code:
-    # model_id: [alpha, beta]
-    gpt-4o: [8500, 1500]
-    gpt-4o-mini: [7800, 2200]
-    claude-3-5-sonnet-20241022: [8200, 1800]
-    claude-3-opus-20240229: [8800, 1200]
+    # model_id: quality_score (0.0-1.0)
+    claude-sonnet-4.5: 0.92    # Best for code (SWE Bench leader)
+    claude-opus-4.5: 0.91      # Premium code generation
+    gpt-5.1: 0.88              # Strong coding performance
+    gpt-5: 0.85                # Good balance
+    o4-mini: 0.78              # Fast and decent
+    gemini-2.5-pro: 0.82       # Strong alternative
+    gemini-2.0-flash: 0.72     # Quick responses
 ```
 
 ### Environment Variables
@@ -192,7 +195,7 @@ from conduit.core import load_context_priors
 
 # Load priors for code context
 code_priors = load_context_priors("code")
-# Returns: {"gpt-4o": (8500, 1500), "gpt-4o-mini": (7800, 2200), ...}
+# Returns: {"claude-sonnet-4.5": (9200, 800), "gpt-5.1": (8800, 1200), ...}
 
 # Use in Thompson Sampling
 for model_id, (alpha, beta) in code_priors.items():
@@ -214,27 +217,19 @@ bandit.update_priors(priors)
 
 ## Benchmark Data Snapshot
 
-Last updated: 2025-01-XX
+Last updated: 2025-11
 
-### Artificial Analysis Intelligence Index
+### Current Model Rankings (by context)
 
-| Model | Intelligence | MMLU Pro | GPQA | LiveCodeBench |
-|-------|-------------|----------|------|---------------|
-| Claude Opus 4.5 (Reasoning) | 69.77 | 0.895 | - | - |
-| Claude Sonnet 4.5 (Reasoning) | 62.66 | 0.875 | - | - |
-| GPT-4o | 57.5 | 0.82 | - | - |
-| GPT-4o-mini | 48.3 | 0.68 | - | - |
+| Context | Top Models |
+|---------|------------|
+| Code | claude-sonnet-4.5 (92%), claude-opus-4.5 (91%), gpt-5.1 (88%) |
+| Creative | claude-opus-4.5 (94%), claude-sonnet-4.5 (90%), gpt-5.1 (86%) |
+| Analysis | claude-opus-4.5 (92%), gpt-5.1 (89%), claude-sonnet-4.5 (88%) |
+| Simple QA | o4-mini (90%), gemini-2.0-flash (88%), gpt-5 (85%) |
+| General | gpt-5.1 (88%), claude-opus-4.5 (87%), claude-sonnet-4.5 (85%) |
 
-### Vellum Leaderboard
-
-| Model | GPQA Diamond | SWE-Bench | MATH 500 |
-|-------|-------------|-----------|----------|
-| Gemini 3 Pro | 91.9% | - | - |
-| GPT 5.1 | 88.1% | - | - |
-| Claude Opus 4.5 | 87% | 80.9% | - |
-| Claude Sonnet 4.5 | - | 82% | - |
-
-*Note: Benchmark data is a point-in-time snapshot. Run `scripts/sync_priors.py` for latest.*
+*Note: Quality scores from conduit.yaml priors configuration.*
 
 ## Limitations
 
