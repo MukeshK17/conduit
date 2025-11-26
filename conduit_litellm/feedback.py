@@ -108,8 +108,13 @@ class ConduitFeedbackLogger(CustomLogger):
                 )
                 return
 
-            # Calculate latency in seconds (times are already floats from time.time())
-            latency = end_time - start_time
+            # Calculate latency in seconds
+            # LiteLLM may pass floats (time.time()) or datetime objects
+            latency_raw = end_time - start_time
+            if hasattr(latency_raw, "total_seconds"):
+                latency = latency_raw.total_seconds()
+            else:
+                latency = float(latency_raw)
 
             # Get model ID from LiteLLM response (e.g., "gpt-4o-mini-2024-07-18")
             litellm_model_id = kwargs.get("model", "unknown")
@@ -223,8 +228,13 @@ class ConduitFeedbackLogger(CustomLogger):
             if cost is None:
                 cost = 0.0
 
-            # Calculate latency in seconds (times are already floats from time.time())
-            latency = end_time - start_time
+            # Calculate latency in seconds
+            # LiteLLM may pass floats (time.time()) or datetime objects
+            latency_raw = end_time - start_time
+            if hasattr(latency_raw, "total_seconds"):
+                latency = latency_raw.total_seconds()
+            else:
+                latency = float(latency_raw)
 
             # Get model ID from LiteLLM response (e.g., "gpt-4o-mini-2024-07-18")
             litellm_model_id = kwargs.get("model", "unknown")
