@@ -7,6 +7,7 @@ improve routing performance on repeated queries.
 import asyncio
 import time
 
+from conduit.core.config import settings
 from conduit.core.models import Query
 from conduit.engines.router import Router
 
@@ -14,17 +15,17 @@ from conduit.engines.router import Router
 async def main():
     print("Cache Performance Demo\n")
 
-    # Test Redis availability
+    # Test Redis availability using configured URL
     try:
         from redis.asyncio import Redis
-        redis = Redis.from_url("redis://localhost:6379")
+        redis = Redis.from_url(settings.redis_url)
         await redis.ping()
         await redis.aclose()
         redis_available = True
         print("✅ Redis connected\n")
-    except Exception:
+    except Exception as e:
         redis_available = False
-        print("⚠️  Redis unavailable (caching disabled)\n")
+        print(f"⚠️  Redis unavailable (caching disabled): {e}\n")
 
     queries = [
         "What is Python?",

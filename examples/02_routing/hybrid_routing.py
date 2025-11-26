@@ -35,13 +35,13 @@ async def main():
     print()
 
     # Initialize hybrid router
-    models = ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet"]
+    models = ["o4-mini", "gpt-5.1", "claude-sonnet-4.5"]
     router = HybridRouter(
         models=models,
-        switch_threshold=10,  # Low threshold for demo (production: 2000)
+        switch_threshold=15,  # Low threshold for demo (production: 2000)
         feature_dim=387,  # 384 embedding + 3 metadata
-        ucb1_c=1.5,  # UCB1 exploration parameter
-        linucb_alpha=1.0,  # LinUCB exploration parameter
+        ucb1_c=2.0,  # Higher exploration parameter for demo
+        linucb_alpha=2.0,  # Higher exploration parameter for demo
     )
 
     print(f"Initialized HybridRouter with {len(models)} models")
@@ -52,8 +52,8 @@ async def main():
     # Create analyzer for LinUCB phase (UCB1 doesn't need features)
     analyzer = QueryAnalyzer()
 
-    # Diverse test queries
-    queries = [
+    # Diverse test queries for UCB1 phase
+    ucb1_queries = [
         "What is 2+2?",
         "Explain quantum computing in simple terms",
         "Write a Python function to sort a list",
@@ -64,13 +64,18 @@ async def main():
         "Translate 'hello' to Spanish",
         "Debug this code: def foo(): return x",
         "What is the meaning of life?",
+        "Compare Python and JavaScript",
+        "Explain neural networks",
+        "What is blockchain?",
+        "Write a SQL query to join tables",
+        "What are REST APIs?",
     ]
 
     print("Phase 1: UCB1 (Non-contextual, Fast Exploration)")
     print("-" * 80)
 
-    # Route first 10 queries in UCB1 phase
-    for i, query_text in enumerate(queries, 1):
+    # Route first 15 queries in UCB1 phase
+    for i, query_text in enumerate(ucb1_queries, 1):
         query = Query(text=query_text)
         decision = await router.route(query)
 
@@ -79,12 +84,22 @@ async def main():
         print(f"  → Phase: {decision.metadata['phase']}")
         print(f"  → Confidence: {decision.confidence:.2%}")
 
-        # Simulate feedback (in production, this comes from actual execution)
+        # Simulate realistic feedback with model-specific quality
+        import random
+        # Different models have different quality profiles
+        base_quality = {
+            "o4-mini": 0.85,
+            "gpt-5.1": 0.88,
+            "claude-sonnet-4.5": 0.90,
+        }
+        quality = base_quality.get(decision.selected_model, 0.85)
+        quality += random.uniform(-0.05, 0.05)  # Add noise
+
         feedback = BanditFeedback(
             model_id=decision.selected_model,
             cost=0.001,
-            quality_score=0.85 + (i * 0.01),  # Gradually improving quality
-            latency=1.0,
+            quality_score=quality,
+            latency=1.0 + random.uniform(-0.2, 0.2),
         )
         await router.update(feedback, decision.features)
 
@@ -99,13 +114,18 @@ async def main():
     print("Phase 2: LinUCB (Contextual, Smart Routing)")
     print("-" * 80)
 
-    # Route 5 more queries in LinUCB phase
+    # Route 10 more queries in LinUCB phase
     additional_queries = [
         "Analyze this data set for patterns",
         "What is the fastest sorting algorithm?",
-        "Explain neural networks",
+        "Explain deep learning concepts",
         "How do I optimize SQL queries?",
         "What is the best programming language?",
+        "Write a recursive function",
+        "Debug memory leaks",
+        "Explain microservices architecture",
+        "What are design patterns?",
+        "Optimize this algorithm",
     ]
 
     for i, query_text in enumerate(additional_queries, router.query_count + 1):
@@ -118,12 +138,15 @@ async def main():
         print(f"  → Confidence: {decision.confidence:.2%}")
         print(f"  → Queries since transition: {decision.metadata['queries_since_transition']}")
 
-        # Provide feedback
+        # Simulate realistic feedback with model-specific quality
+        quality = base_quality.get(decision.selected_model, 0.85)
+        quality += random.uniform(-0.05, 0.05)
+
         feedback = BanditFeedback(
             model_id=decision.selected_model,
             cost=0.001,
-            quality_score=0.90,
-            latency=1.0,
+            quality_score=quality,
+            latency=1.0 + random.uniform(-0.2, 0.2),
         )
 
         # LinUCB requires features for update
@@ -135,18 +158,39 @@ async def main():
     print("Final Statistics")
     print("=" * 80)
 
-    stats = router.get_stats()
-    print(f"Phase: {stats['phase']}")
-    print(f"Total queries: {stats['query_count']}")
-    print(f"Switch threshold: {stats['switch_threshold']}")
+    # Get stats from both phases
+    ucb1_stats = router.ucb1.get_stats()
+    linucb_stats = router.linucb.get_stats()
+
+    print(f"Current phase: {router.current_phase}")
+    print(f"Total queries: {router.query_count}")
+    print(f"Switch threshold: {router.switch_threshold}")
     print()
-    print("Model Statistics:")
+
+    print("UCB1 Phase (Queries 1-10):")
+    print(f"  Total pulls: {ucb1_stats['total_queries']}")
     for model_id in models:
-        pulls = stats["arm_pulls"].get(model_id, 0)
-        mean_reward = stats["arm_mean_reward"].get(model_id, 0.0)
+        ucb1_pulls = ucb1_stats["arm_pulls"].get(model_id, 0)
+        mean_reward = ucb1_stats["arm_mean_reward"].get(model_id, 0.0)
         print(f"  {model_id}:")
-        print(f"    - Pulls: {pulls}")
+        print(f"    - Pulls: {ucb1_pulls}")
         print(f"    - Mean Reward: {mean_reward:.3f}")
+
+    print()
+    print("LinUCB Phase (Queries 11-15):")
+    print(f"  Total pulls: {linucb_stats['total_queries']}")
+    for model_id in models:
+        linucb_pulls = linucb_stats["arm_pulls"].get(model_id, 0)
+        success_rate = linucb_stats["arm_success_rates"].get(model_id, 0.0)
+        print(f"  {model_id}:")
+        print(f"    - Pulls: {linucb_pulls}")
+        print(f"    - Success Rate: {success_rate:.1%}")
+
+    print()
+    print("Combined Statistics:")
+    for model_id in models:
+        total_pulls = ucb1_stats["arm_pulls"].get(model_id, 0) + linucb_stats["arm_pulls"].get(model_id, 0)
+        print(f"  {model_id}: {total_pulls} total pulls")
 
     print()
     print("=" * 80)
