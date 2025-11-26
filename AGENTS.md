@@ -12,9 +12,9 @@ last_updated: 2025-01-22
 
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
-**Current Phase**: Phase 3 complete + Performance optimizations + LiteLLM examples shipped
-**Test Health**: 88% (64/73 bandit tests passing), 87% coverage
-**Latest**: User preferences, LiteLLM examples, and LLM-as-judge evaluation complete
+**Current Phase**: Pre-1.0 preparation (CI/CD complete, migration testing next)
+**Test Health**: 100% (565/565 tests passing), 81% coverage
+**Latest**: GitHub Actions CI, pre-push hooks, scope documentation, 100% test pass rate
 
 ---
 
@@ -767,75 +767,81 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-22)
+## Current Status (2025-11-26)
 
-### Latest: Measurement & Evaluation Complete ✅
+### Latest: CI/CD & Test Infrastructure Complete ✅
 
-**Arbiter LLM-as-Judge Integration** (commits: 0598f61, a1ceb96):
-1. **ArbiterEvaluator** - Async LLM-as-judge quality assessment
-   - File: `conduit/evaluation/arbiter_evaluator.py` (174 lines)
-   - Fire-and-forget evaluation (doesn't block routing)
-   - Semantic + factuality evaluators
-   - Configurable sampling (10% default) with budget control
-   - Automatic cost tracking via Arbiter framework
-   - Stores feedback for bandit learning
-   - 11/11 unit tests passing, 100% coverage
-   - Live integration tested with real API calls
+**GitHub Actions CI Workflow** (PR #112, commits: 454d241, 0b75957, 8e26310):
+- **CI Pipeline** (`.github/workflows/ci.yml`):
+  - Runs on every PR and push to main
+  - PostgreSQL 15 service for integration tests
+  - Database migrations via Alembic
+  - Test suite: 565 passing, 0 failing (100% pass rate)
+  - Coverage: 81% (exceeds >80% requirement)
+  - Linting: ruff (auto-fix applied, ignore rules for math notation)
+  - Formatting: black (35 files reformatted)
+  - Type checking: mypy (non-blocking until errors fixed)
 
-**LiteLLM Feedback Loop** (commit: c68b7d0):
-1. **ConduitFeedbackLogger** - Automatic bandit learning from LiteLLM
-   - `CustomLogger` integration with LiteLLM callbacks
-   - Captures cost from `response._hidden_params['response_cost']`
-   - Calculates latency from `end_time - start_time`
-   - Regenerates features from query text using `router.analyzer`
-   - Quality estimation: success=0.9, failure=0.1
-   - Updates bandit with composite rewards (quality + cost + latency)
-   - Supports both hybrid and standard routing modes
-   - Comprehensive unit tests (test_litellm_feedback.py, 19 tests)
-   - File: `conduit_litellm/feedback.py` (390 lines)
+**Pre-Push Git Hook** (`scripts/git-hooks/pre-push`):
+- Mirrors CI checks locally before push
+- Runs: ruff → black → mypy → unit tests
+- Fast feedback (unit tests only, ~30s)
+- Installable via `bash scripts/install-hooks.sh`
+- Skip with: `git push --no-verify`
 
-2. **Feedback Integration** - Zero-config automatic learning
-   - Auto-registered with LiteLLM on strategy initialization
-   - Eliminates llm-prices.com dependency for conduit_litellm usage
-   - Stateless design: regenerates features in callback (no request tracking)
-   - Handles async/sync contexts correctly
-   - Integrated into `ConduitRoutingStrategy._initialize_feedback_logger()`
+**Scope Documentation** (`docs/SCOPE.md`):
+- Defines what Conduit does (ML routing, state persistence, integrations)
+- Defines what Conduit doesn't do (multi-tenancy, custom scoring, model hosting, auth, streaming, UI)
+- Decision framework for feature evaluation
+- Gray areas documented (failover, cost budgets, A/B testing)
 
-**Previous: Performance Optimizations** (commits: 834c2ef, 4093d2f, 7fafe50, ace8305):
-1. Hybrid Routing (30% faster convergence)
-2. PCA Dimensionality Reduction (75% sample reduction)
-3. Dynamic Pricing & Model Discovery
-
-### Phase 3 Complete: Strategic Algorithm Improvements
-
-**All 3 Tasks Shipped** (2025-01-21):
-1. Multi-objective reward function (quality + cost + latency)
-2. Non-stationarity handling (sliding windows, configurable window_size)
-3. Contextual Thompson Sampling (Bayesian contextual bandit)
+**Issue Tracking** (Pre-1.0 preparation):
+- #110: Migration testing checklist
+- #111: Release automation process
 
 ### Test Health
-- **Overall**: 88% (64/73 bandit tests passing), 87% coverage
-- **Hybrid Router**: 17/17 tests (100%)
-- **PCA**: Comprehensive tests
-- **Bandit Algorithms**: 64/73 passing (88%)
-  - Contextual Thompson Sampling: 17/17 (100%)
-  - LinUCB: 12/12 (100%)
-  - Epsilon-Greedy: 14/14 (100%)
-  - UCB1: 11/11 (100%)
-  - Non-stationarity: 11/11 (100%)
-  - 9 failures: composite reward expectations (test issues, not code bugs)
+- **Overall**: 100% passing (565/565 tests), 81% coverage
+- **Unit Tests**: 553 passing
+- **Integration Tests**: 12 passing (API + database)
+- **Skipped**: 14 (optional deps: litellm, Redis, sentence-transformers)
+- **All Bandit Algorithms**: 100% passing
+  - Contextual Thompson Sampling: 17/17
+  - LinUCB: 12/12
+  - Epsilon-Greedy: 14/14
+  - UCB1: 11/11
+  - Thompson Sampling: 8/8
+  - Non-stationarity: 11/11
 
-### API Layer Coverage
-- **Tests exist**: 513 lines, 38 tests (routes + middleware)
-- **Status**: Blocked by pytest sklearn import (environment issue)
-- **Code quality**: Production-ready, runs fine outside pytest
+### Recent Work (2025-11-26)
+- ✅ Achieved 100% test pass rate (fixed database integration tests)
+- ✅ Automated CI/CD with GitHub Actions
+- ✅ Pre-push hooks for local validation
+- ✅ Scope boundaries documented
+- ✅ Linting/formatting standardized
+- ✅ Database migration fixed (statement_cache_size=0)
 
-### Recent Work (2025-01-22)
-- Shipped hybrid routing system (834c2ef)
-- Shipped PCA dimensionality reduction (ace8305)
-- Added dynamic pricing and model discovery
-- Fixed composite reward test expectations (9ba4af6)
-- Updated README and documentation
+### Previous: Measurement & Evaluation (2025-11-22)
+
+**Arbiter LLM-as-Judge Integration**:
+- Async LLM-as-judge quality assessment
+- Fire-and-forget evaluation (doesn't block routing)
+- Configurable sampling with budget control
+- 11/11 tests passing, 100% coverage
+
+**LiteLLM Feedback Loop**:
+- Automatic bandit learning from LiteLLM callbacks
+- Zero-config automatic learning
+- Comprehensive unit tests (19 tests)
+
+**Performance Optimizations**:
+- Hybrid Routing (30% faster convergence)
+- PCA Dimensionality Reduction (75% sample reduction)
+- Dynamic Pricing & Model Discovery
+
+**Phase 3 Complete**:
+- Multi-objective reward function
+- Non-stationarity handling
+- Contextual Thompson Sampling
 
 ---
 
