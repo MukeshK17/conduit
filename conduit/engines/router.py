@@ -21,11 +21,42 @@ class Router:
     This class provides a simple interface for routing queries to optimal LLM models
     using machine learning. It automatically handles all the complex setup and wiring.
 
+    Contract Guarantees:
+        - Thread Safety: Safe for concurrent route() calls
+        - Resource Management: Manages all components lifecycle automatically
+        - Graceful Degradation: Works without Redis (caching disabled)
+        - Error Handling: Never fails routing (fallback to random selection)
+        - Configuration Validation: Validates settings at initialization
+
+    State Management:
+        - QueryAnalyzer: Query feature extraction with caching
+        - HybridRouter: UCB1→LinUCB routing strategy
+        - CacheService: Optional Redis cache with circuit breaker
+        - Algorithm state: Persisted via HybridRouter
+
+    Lifecycle:
+        1. Initialize: Setup components (analyzer, cache, hybrid router)
+        2. Route: Process queries and learn from feedback
+        3. Close: Cleanup resources (Redis connections, etc.)
+
+    Performance Design Goals (not enforced):
+        - Cold start: Fast (UCB1 phase, no embedding needed)
+        - Warm routing: Depends on embedding + bandit computation
+        - With cache hit: Much faster (embedding cached)
+        - Actual performance varies with deployment environment and load
+
+    Error Handling:
+        - Embedding failures: Use zero vector, route with UCB1
+        - Cache failures: Bypass cache, log warning, continue routing
+        - Model unavailable: Try next best model from candidates
+        - Invalid query: Validate and sanitize before processing
+
     Example:
         >>> router = Router()
         >>> query = Query(text="What is 2+2?")
         >>> decision = await router.route(query)
         >>> print(f"Selected: {decision.selected_model}")
+        >>> await router.close()  # Cleanup resources
     """
 
     def __init__(
@@ -130,6 +161,27 @@ class Router:
     async def route(self, query: Query) -> RoutingDecision:
         """Route a query to the optimal model using hybrid routing (UCB1→LinUCB).
 
+        Contract Guarantees:
+            - MUST always return valid RoutingDecision (never None)
+            - MUST select from available models only
+            - MUST be thread-safe for concurrent calls
+            - MUST apply user preferences when provided
+
+        Performance:
+            - Designed to be fast (typically completes quickly)
+            - Actual latency depends on embedding provider, cache, and network
+            - Cold start faster than warm routing (no embedding needed)
+
+        State Modifications:
+            - Updates bandit algorithm state (via feedback loops)
+            - MAY update cache with query features
+            - Increments routing counters
+
+        Routing Strategy:
+            1. Cold start (queries < switch_threshold): UCB1 (fast, no context)
+            2. Warm routing (queries >= switch_threshold): LinUCB (contextual)
+            3. User preferences: Applied as reward weight overrides
+
         Args:
             query: The query to route, including text and optional constraints.
 
@@ -137,8 +189,12 @@ class Router:
             RoutingDecision with the selected model, confidence, and reasoning.
 
         Example:
-            >>> query = Query(text="Explain quantum physics simply")
+            >>> query = Query(
+            ...     text="Explain quantum physics simply",
+            ...     preferences=UserPreferences(optimize_for="cost")
+            ... )
             >>> decision = await router.route(query)
+            >>> assert decision.selected_model in router.hybrid_router.models  # Guaranteed
             >>> print(f"Use {decision.selected_model} (confidence: {decision.confidence:.2f})")
         """
         # Apply user preferences to reward weights

@@ -116,6 +116,32 @@ class BanditAlgorithm(ABC):
     1. select_arm: Choose which model to use for a query
     2. update: Update internal state with feedback
     3. reset: Reset algorithm state
+    4. to_state: Serialize state for persistence
+    5. from_state: Restore state from persistence
+
+    Contract Guarantees:
+        - Thread Safety: All implementations MUST be thread-safe for async operations
+        - State Invariants: After update(), total_queries must increment by 1
+        - Error Handling: All methods must handle invalid inputs gracefully
+        - Persistence: to_state() must capture ALL state needed for from_state()
+        - Idempotency: reset() followed by from_state(initial_state) restores initial state
+
+    State Management:
+        - All implementations maintain total_queries counter
+        - State serialization must be lossless (from_state(to_state()) = identity)
+        - from_state() validates compatibility with algorithm configuration
+        - reset() clears all learned state but preserves arms configuration
+
+    Error Handling:
+        - select_arm() never fails (may use random selection as fallback)
+        - update() validates feedback before state modification
+        - from_state() raises ValueError for incompatible state
+        - Async methods handle cancellation gracefully
+
+    Performance Design Goals (not enforced):
+        - select_arm() should complete quickly (typically <100ms)
+        - update() should complete quickly (typically <50ms)
+        - Actual performance depends on deployment environment and load
 
     Uses Conduit's QueryFeatures for context instead of custom data structures.
     """
@@ -137,11 +163,25 @@ class BanditAlgorithm(ABC):
     async def select_arm(self, features: QueryFeatures) -> ModelArm:
         """Select which model arm to pull for this query.
 
+        Contract Guarantees:
+            - MUST always return a valid arm from self.arms
+            - MUST NOT raise exceptions (use fallback selection if needed)
+            - MUST be thread-safe for concurrent calls
+            - Result is deterministic for same features and state
+
+        Performance:
+            - Designed to be fast (typically <100ms in normal conditions)
+            - Actual performance depends on deployment environment
+
+        State Modifications:
+            - MAY increment internal counters (implementation-specific)
+            - MUST NOT modify features parameter
+
         Args:
             features: Query features from QueryAnalyzer
 
         Returns:
-            Selected model arm
+            Selected model arm (always one of self.arms values)
 
         Example:
             >>> features = QueryFeatures(
@@ -154,6 +194,7 @@ class BanditAlgorithm(ABC):
             >>> arm = await algorithm.select_arm(features)
             >>> print(arm.model_id)
             "openai:gpt-4o-mini"
+            >>> assert arm in algorithm.arms.values()  # Guaranteed
         """
         pass
 
@@ -161,9 +202,33 @@ class BanditAlgorithm(ABC):
     async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
         """Update algorithm state with feedback from arm pull.
 
+        Contract Guarantees:
+            - MUST increment self.total_queries by 1
+            - MUST validate feedback.model_id is in self.arms
+            - MUST be thread-safe for concurrent updates
+            - MUST handle invalid feedback gracefully (log warning, skip update)
+
+        Performance:
+            - Designed to be fast (typically <50ms in normal conditions)
+            - Actual performance depends on deployment environment
+
+        State Modifications:
+            - Updates algorithm-specific state (matrices, counters, distributions)
+            - Increments total_queries counter
+            - MAY update per-arm statistics
+
+        Validation:
+            - feedback.model_id must exist in self.arms (raises ValueError if not)
+            - feedback.quality_score must be in [0, 1] (Pydantic validation)
+            - feedback.cost must be >= 0 (Pydantic validation)
+            - feedback.latency must be >= 0 (Pydantic validation)
+
         Args:
             feedback: Feedback from model execution
             features: Original query features
+
+        Raises:
+            ValueError: If feedback.model_id not in self.arms
 
         Example:
             >>> feedback = BanditFeedback(
@@ -172,7 +237,9 @@ class BanditAlgorithm(ABC):
             ...     quality_score=0.95,
             ...     latency=1.2
             ... )
+            >>> queries_before = algorithm.total_queries
             >>> await algorithm.update(feedback, features)
+            >>> assert algorithm.total_queries == queries_before + 1  # Guaranteed
         """
         pass
 
@@ -180,13 +247,29 @@ class BanditAlgorithm(ABC):
     def reset(self) -> None:
         """Reset algorithm to initial state.
 
-        Clears all learned parameters and history.
-        Useful for running multiple independent experiments.
+        Contract Guarantees:
+            - MUST set total_queries to 0
+            - MUST reset all learned parameters to initial values
+            - MUST preserve arms configuration (self.arms unchanged)
+            - MUST be idempotent (reset twice = reset once)
+            - Result state equals newly constructed algorithm state
+
+        State Modifications:
+            - Clears all learned parameters and history
+            - Resets total_queries to 0
+            - Reinitializes algorithm-specific state (matrices, distributions, etc.)
+            - Does NOT modify self.arms or self.arm_list
+
+        Use Cases:
+            - Running multiple independent experiments
+            - Testing algorithm behavior from clean state
+            - Resetting after configuration changes
 
         Example:
+            >>> algorithm.total_queries = 1000
             >>> algorithm.reset()
-            >>> algorithm.total_queries
-            0
+            >>> assert algorithm.total_queries == 0  # Guaranteed
+            >>> assert len(algorithm.arms) == initial_arm_count  # Arms preserved
         """
         pass
 
@@ -194,8 +277,26 @@ class BanditAlgorithm(ABC):
     def to_state(self) -> "BanditState":
         """Serialize algorithm state for persistence.
 
-        Converts all internal state (matrices, vectors, counters) to a
-        BanditState object that can be serialized to JSON for database storage.
+        Contract Guarantees:
+            - MUST capture ALL state needed for complete restoration
+            - MUST be lossless (from_state(to_state()) restores exact state)
+            - Result MUST be JSON-serializable via BanditState.model_dump()
+            - MUST include algorithm identifier for validation
+
+        Performance:
+            - Designed to be fast (typically <1s for typical state sizes)
+            - Actual performance depends on state size and deployment environment
+
+        State Captured:
+            - Algorithm name and configuration
+            - Total queries counter
+            - All learned parameters (matrices, vectors, distributions)
+            - Per-arm statistics and history
+            - Algorithm-specific metadata
+
+        Serialization:
+            Converts all internal state (matrices, vectors, counters) to a
+            BanditState object that can be serialized to JSON for database storage.
 
         Returns:
             BanditState object containing all algorithm state
@@ -204,8 +305,11 @@ class BanditAlgorithm(ABC):
             >>> state = algorithm.to_state()
             >>> state.algorithm
             "linucb"
+            >>> state.total_queries
+            1000
             >>> len(state.A_matrices)  # LinUCB-specific
             5
+            >>> json_str = state.model_dump_json()  # JSON-serializable
         """
         pass
 
@@ -213,20 +317,35 @@ class BanditAlgorithm(ABC):
     def from_state(self, state: "BanditState") -> None:
         """Restore algorithm state from persisted data.
 
-        Loads internal state from a BanditState object, typically loaded
-        from database storage after a server restart.
+        Contract Guarantees:
+            - MUST restore ALL state captured by to_state()
+            - MUST validate state compatibility before applying
+            - MUST be inverse of to_state() (lossless restoration)
+            - MUST raise ValueError for incompatible state
+            - State after restoration MUST equal state before serialization
+
+        Validation Required:
+            - Algorithm name matches (e.g., "linucb" state for LinUCB)
+            - Feature dimensions match configuration
+            - Number of arms matches current configuration
+            - State structure matches expected format
+
+        State Restoration:
+            Loads internal state from a BanditState object, typically loaded
+            from database storage after a server restart.
 
         Args:
             state: BanditState object with serialized state
 
         Raises:
             ValueError: If state is incompatible with algorithm configuration
+                       (wrong algorithm, dimension mismatch, arm mismatch)
 
         Example:
             >>> state = await store.load_bandit_state("router-1", "linucb")
             >>> algorithm.from_state(state)
-            >>> algorithm.total_queries
-            1500
+            >>> assert algorithm.total_queries == state.total_queries  # Restored
+            >>> assert algorithm.name == state.algorithm  # Validated
         """
         pass
 

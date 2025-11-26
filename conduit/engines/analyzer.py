@@ -29,6 +29,30 @@ class QueryAnalyzer:
 
     Default: HuggingFace Inference API (free, no API key needed)
     Recommended: OpenAI or Cohere (better quality, requires API keys)
+
+    Contract Guarantees:
+        - Thread Safety: Safe for concurrent analyze() calls
+        - Idempotency: Same query always produces same features (deterministic)
+        - Error Handling: Never fails (returns default features on embedding failure)
+        - Cache Consistency: Cache hits return identical features to cache misses
+        - PCA Invariant: When enabled, PCA must be fitted before analyze()
+
+    State Management:
+        - Embedding provider state (API clients, connection pools)
+        - Optional cache service (Redis connection with circuit breaker)
+        - Optional PCA model (fitted or loaded from disk)
+        - Domain classifier (stateless keyword matcher)
+
+    Performance Design Goals (not enforced):
+        - Cache hit: Fast response (typically <5ms)
+        - Cache miss: Depends on embedding provider (typically <200ms)
+        - Expected cache hit rate: High (typically >80% after 1 week)
+
+    Error Handling:
+        - Embedding failures: Log warning, use zero vector fallback
+        - Cache failures: Graceful degradation (bypass cache, log warning)
+        - PCA not fitted: Raise RuntimeError with clear message
+        - Invalid input: Validate and sanitize before processing
     """
 
     def __init__(
@@ -107,6 +131,29 @@ class QueryAnalyzer:
     async def analyze(self, query: str) -> QueryFeatures:
         """Extract features from query for routing decision.
 
+        Contract Guarantees:
+            - MUST always return valid QueryFeatures (never None)
+            - MUST be deterministic (same query = same features)
+            - MUST be thread-safe for concurrent calls
+            - MUST use cache when available (check before compute)
+
+        Performance:
+            - Designed to be fast (typically <200ms including embedding)
+            - Cache hits much faster (typically <5ms)
+            - Actual performance depends on embedding provider and network
+
+        Feature Vector Structure:
+            - embedding: 384 dims (HuggingFace default) or provider-specific
+            - token_count: Estimated tokens (words * 1.3)
+            - complexity_score: 0.0-1.0 (length + technical + questions)
+            - domain: Keyword-based classification
+            - domain_confidence: 0.5-1.0 (based on keyword matches)
+
+        State Modifications:
+            - MAY update cache with computed features
+            - Does NOT modify analyzer state
+            - Does NOT modify input query
+
         Args:
             query: User query text
 
@@ -121,8 +168,8 @@ class QueryAnalyzer:
         Example:
             >>> analyzer = QueryAnalyzer()
             >>> features = await analyzer.analyze("What is photosynthesis?")
-            >>> features.complexity_score
-            0.3
+            >>> assert 0.0 <= features.complexity_score <= 1.0  # Guaranteed
+            >>> assert len(features.embedding) == analyzer.embedding_provider.dimension
             >>> features.domain
             "science"
         """
