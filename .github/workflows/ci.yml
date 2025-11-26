@@ -41,6 +41,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
+        run: uv run alembic upgrade head
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
