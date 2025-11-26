@@ -21,6 +21,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
 
+from conduit.core.config import get_fallback_pricing, get_default_pricing
 from conduit.core.models import Query
 from conduit.engines.router import Router
 
@@ -122,7 +123,7 @@ class CostSavingsBenchmark:
         return queries
 
     def simulate_cost(self, model_id: str, complexity: str) -> float:
-        """Simulate cost for a model and query complexity.
+        """Simulate cost for a model and query complexity using real pricing.
 
         Args:
             model_id: Model identifier
@@ -131,20 +132,41 @@ class CostSavingsBenchmark:
         Returns:
             Cost in dollars
         """
-        # Simplified cost model
-        base_costs = {
-            "gpt-4o": 0.002,
-            "gpt-4o-mini": 0.0001,
-            "claude-3-5-sonnet": 0.003,
-            "claude-3-haiku": 0.00025,
-        }
-
-        base_cost = base_costs.get(model_id, 0.001)
-
-        # Complex queries cost more (more tokens)
-        multiplier = 2.0 if complexity == "complex" else 1.0
-
-        return base_cost * multiplier
+        # Use real pricing from pricing.yaml
+        # Assumes ~500 input + 200 output tokens for simple queries
+        # Assumes ~1000 input + 500 output tokens for complex queries
+        
+        # Try to find pricing for this model (handle aliases)
+        model_pricing = None
+        
+        # Direct match
+        if model_id in self.pricing:
+            model_pricing = self.pricing[model_id]
+        # Try common aliases
+        elif model_id == "claude-opus-4.5":
+            model_pricing = self.pricing.get("claude-opus-4-5-20241124")
+        elif model_id == "claude-sonnet-4.5":
+            model_pricing = self.pricing.get("claude-sonnet-4-5-20241124")
+        elif model_id == "gpt-5.1":
+            model_pricing = self.pricing.get("gpt-5.1") or self.pricing.get("gpt-5")
+        
+        # Fallback to default pricing
+        if model_pricing is None:
+            model_pricing = self.default_pricing
+        
+        # Calculate cost based on token usage
+        if complexity == "simple":
+            input_tokens = 500
+            output_tokens = 200
+        else:  # complex
+            input_tokens = 1000
+            output_tokens = 500
+        
+        # Pricing is per million tokens
+        input_cost = (model_pricing["input"] * input_tokens) / 1_000_000
+        output_cost = (model_pricing["output"] * output_tokens) / 1_000_000
+        
+        return input_cost + output_cost
 
     def simulate_quality(self, model_id: str, complexity: str) -> float:
         """Simulate quality for a model and query complexity.
@@ -292,36 +314,72 @@ class CostSavingsBenchmark:
         static_best_cumulative: np.ndarray,
         static_cheap_cumulative: np.ndarray,
     ):
-        """Generate cost savings graph.
+        """Generate cost savings graph with dual-axis showing cost and quality.
 
         Args:
             conduit_cumulative: Cumulative costs for Conduit
             static_best_cumulative: Cumulative costs for static (always best)
             static_cheap_cumulative: Cumulative costs for static (always cheap)
         """
-        plt.figure(figsize=(12, 6))
+        fig, ax1 = plt.subplots(figsize=(14, 7))
 
         x = np.arange(1, len(conduit_cumulative) + 1)
 
-        plt.plot(x, conduit_cumulative, label="Conduit (Adaptive)", linewidth=2, color="#10b981")
-        plt.plot(x, static_best_cumulative, label="Static (Always Best)", linewidth=2, color="#ef4444", linestyle="--")
-        plt.plot(x, static_cheap_cumulative, label="Static (Always Cheap)", linewidth=2, color="#f59e0b", linestyle="--")
+        # Left axis: Cumulative Cost
+        ax1.plot(x, conduit_cumulative, label="Conduit (Adaptive)", linewidth=2.5, color="#10b981")
+        ax1.plot(x, static_best_cumulative, label="Static (Always Best)", linewidth=2, color="#ef4444", linestyle="--", alpha=0.8)
+        ax1.plot(x, static_cheap_cumulative, label="Static (Always Cheap)", linewidth=2, color="#f59e0b", linestyle="--", alpha=0.8)
+        ax1.set_xlabel("Query Number", fontsize=12)
+        ax1.set_ylabel("Cumulative Cost ($)", fontsize=12, color="#1f2937")
+        ax1.tick_params(axis="y", labelcolor="#1f2937")
+        ax1.grid(True, alpha=0.3)
 
-        plt.xlabel("Query Number", fontsize=12)
-        plt.ylabel("Cumulative Cost ($)", fontsize=12)
-        plt.title("Cost Comparison: Conduit vs. Static Routing", fontsize=14, fontweight="bold")
-        plt.legend(fontsize=11)
-        plt.grid(True, alpha=0.3)
+        # Right axis: Average Quality (rolling average)
+        ax2 = ax1.twinx()
+        
+        # Calculate rolling average quality (window of 50 queries)
+        window = 50
+        conduit_quality_rolling = []
+        static_best_quality_rolling = []
+        static_cheap_quality_rolling = []
+        
+        for i in range(len(self.results)):
+            start = max(0, i - window + 1)
+            conduit_qual = np.mean([float(self.results[j]["conduit_quality"]) for j in range(start, i + 1)])
+            static_best_qual = np.mean([float(self.results[j]["static_best_quality"]) for j in range(start, i + 1)])
+            static_cheap_qual = np.mean([float(self.results[j]["static_cheap_quality"]) for j in range(start, i + 1)])
+            conduit_quality_rolling.append(conduit_qual)
+            static_best_quality_rolling.append(static_best_qual)
+            static_cheap_quality_rolling.append(static_cheap_qual)
+        
+        ax2.plot(x, conduit_quality_rolling, label="Conduit Quality", linewidth=2, color="#10b981", linestyle=":", alpha=0.7)
+        ax2.plot(x, static_best_quality_rolling, label="Static Best Quality", linewidth=1.5, color="#ef4444", linestyle=":", alpha=0.6)
+        ax2.plot(x, static_cheap_quality_rolling, label="Static Cheap Quality", linewidth=1.5, color="#f59e0b", linestyle=":", alpha=0.6)
+        ax2.set_ylabel("Average Quality (rolling 50 queries)", fontsize=12, color="#6366f1")
+        ax2.tick_params(axis="y", labelcolor="#6366f1")
+        ax2.set_ylim([0.6, 1.0])  # Quality range
+
+        # Title and legend
+        plt.title("Cost & Quality Comparison: Conduit vs. Static Routing", fontsize=14, fontweight="bold", pad=20)
+        
+        # Combine legends
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=10)
 
         # Add savings annotation
         final_savings = ((static_best_cumulative[-1] - conduit_cumulative[-1]) / static_best_cumulative[-1]) * 100
-        plt.annotate(
-            f"Savings: {final_savings:.1f}%",
+        final_conduit_quality = conduit_quality_rolling[-1]
+        final_best_quality = static_best_quality_rolling[-1]
+        quality_retention = (final_conduit_quality / final_best_quality) * 100
+        
+        ax1.annotate(
+            f"Savings: {final_savings:.1f}%\nQuality: {quality_retention:.1f}%",
             xy=(len(conduit_cumulative), conduit_cumulative[-1]),
-            xytext=(len(conduit_cumulative) * 0.7, conduit_cumulative[-1] * 1.1),
-            fontsize=12,
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-            arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+            xytext=(len(conduit_cumulative) * 0.65, conduit_cumulative[-1] * 1.15),
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.7),
+            arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2", color="#10b981"),
         )
 
         plt.tight_layout()
