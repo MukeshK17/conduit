@@ -220,7 +220,7 @@ wheels = [
 [[package]]
 name = "arbiter-ai"
 version = "0.1.0"
-source = { editable = "../arbiter" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
     { name = "httpx" },
@@ -232,54 +232,10 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "typing-extensions" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiofiles", specifier = ">=25.0.0" },
-    { name = "alembic", marker = "extra == 'postgres'", specifier = ">=1.13.0" },
-    { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.72.0" },
-    { name = "arbiter", extras = ["anthropic", "gemini", "mistral", "cohere", "scale", "redis", "dev"], marker = "extra == 'all'" },
-    { name = "arbiter", extras = ["postgres", "redis"], marker = "extra == 'storage'" },
-    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29.0" },
-    { name = "black", marker = "extra == 'dev'", specifier = ">=25.0.0" },
-    { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "cohere", marker = "extra == 'cohere'", specifier = ">=5.0.0" },
-    { name = "faiss-cpu", marker = "extra == 'scale'", specifier = ">=1.7.4" },
-    { name = "google-generativeai", marker = "extra == 'gemini'", specifier = ">=0.8.5" },
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "logfire", specifier = ">=4.0.0" },
-    { name = "mistralai", marker = "extra == 'mistral'", specifier = ">=1.0.0" },
-    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.7.0" },
-    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.30.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.0" },
-    { name = "numpy", specifier = ">=2.0.0" },
-    { name = "openai", specifier = ">=2.0.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "psutil", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9.0" },
-    { name = "pydantic", specifier = ">=2.12.0" },
-    { name = "pydantic-ai", specifier = ">=1.14.0" },
-    { name = "pymilvus", marker = "extra == 'scale'", specifier = ">=2.6.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.15.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.8.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0.0" },
-    { name = "rich", marker = "extra == 'dev'", specifier = ">=14.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.0" },
-    { name = "sentence-transformers", marker = "extra == 'scale'", specifier = ">=2.2.0" },
-    { name = "setuptools", marker = "extra == 'dev'", specifier = ">=80.0.0" },
-    { name = "sqlalchemy", marker = "extra == 'postgres'", specifier = ">=2.0.0" },
-    { name = "twine", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "types-aiofiles", marker = "extra == 'dev'", specifier = ">=25.0.0" },
-    { name = "types-redis", marker = "extra == 'dev'", specifier = ">=4.6.0" },
-    { name = "typing-extensions", specifier = ">=4.0.0" },
-    { name = "watchdog", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/f8/8b/4ab1724a2308bea137fcd90643756a9030f06c4cd7f8442696242aec9988/arbiter_ai-0.1.0.tar.gz", hash = "sha256:91e1f856be3a37b0a6f07cb560f27bc64b925c0cf69e7c45933ce96a0d55789b", size = 90626, upload-time = "2025-11-26T02:31:47.044Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/b5/0442df8320f8c242108556d1bb23dc5c5b5d91b488c6c654bb97b1007e16/arbiter_ai-0.1.0-py3-none-any.whl", hash = "sha256:67148720d8b4861a827fb2dc80ca1b47e561b055515b54f05737226385f5dbe0", size = 106199, upload-time = "2025-11-26T02:31:45.741Z" },
 ]
-provides-extras = ["anthropic", "gemini", "mistral", "cohere", "scale", "postgres", "redis", "storage", "dev", "all"]
 
 [[package]]
 name = "argcomplete"
@@ -712,7 +668,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
-    { name = "arbiter-ai", marker = "extra == 'arbiter'", editable = "../arbiter" },
+    { name = "arbiter-ai", marker = "extra == 'arbiter'", specifier = ">=0.1.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.0.0" },
     { name = "click", specifier = ">=8.0.0" },

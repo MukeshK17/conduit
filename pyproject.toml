@@ -60,7 +60,7 @@ litellm = [
     "litellm>=1.74.9",
 ]
 arbiter = [
-    "arbiter-ai",
+    "arbiter-ai>=0.1.0",
 ]
 embeddings = [
     "sentence-transformers>=2.2.0",
@@ -127,9 +127,6 @@ minversion = "9.0"
 addopts = "-ra -q --strict-markers --cov=conduit --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
-
-[tool.uv.sources]
-arbiter-ai = { path = "/Users/evan/Documents/gh/arbiter", editable = true }
 
 [dependency-groups]
 dev = [
