@@ -1,10 +1,10 @@
-# Conduit
+# Conduit Router
 
 ML-powered LLM routing system that learns optimal model selection for cost, latency, and quality optimization.
 
 ## Overview
 
-Conduit uses contextual bandits (Thompson Sampling) to intelligently route queries to the optimal LLM model based on learned patterns from usage data. Unlike static rule-based routers, Conduit continuously improves routing decisions through feedback loops.
+The Conduit Router uses contextual bandits (Thompson Sampling) to intelligently route queries to the optimal LLM model based on learned patterns from usage data. Unlike static rule-based routers, the Conduit Router continuously improves routing decisions through feedback loops.
 
 ## Key Features
 
@@ -58,7 +58,7 @@ asyncio.run(main())
 ### Installation
 
 ```bash
-git clone https://github.com/MisfitIdeas/conduit.git
+git clone https://github.com/ashita-ai/conduit.git
 cd conduit
 
 python3.13 -m venv .venv
@@ -202,7 +202,7 @@ All algorithms support:
 ## Status
 
 **Version**: 0.0.5-alpha (Phase 3 Complete)
-**Test Coverage**: 87% (64/73 bandit tests passing)
+**Tests**: All unit tests passing
 
 ### Recent Additions
 - ✅ **Lightweight Embeddings**: API-based embeddings (HuggingFace API default, OpenAI, Cohere) - removes heavy sentence-transformers dependency

@@ -8,6 +8,28 @@ Requirements:
 
 Run:
     python examples/04_litellm/basic_usage.py
+
+Expected output:
+    Basic Conduit + LiteLLM Integration
+
+    Conduit routing strategy activated
+    Available models: o4-mini (cheap), gpt-5 (capable)
+    Conduit will learn which model is best for each query type
+
+    [1/5] Query (simple): What is 2+2?...
+          Conduit selected: gpt-4o-mini
+          Response: 2 + 2 equals 4...
+
+    [2/5] Query (complex): Explain quantum mechanics in detail....
+          Conduit selected: gpt-4o
+          Response: Quantum mechanics is a fundamental theory...
+
+    ... (3 more queries)
+
+    Done! Conduit learned from these requests and will:
+       Route simple queries to o4-mini (cheaper)
+       Route complex queries to gpt-5 (better quality)
+       Continuously improve routing decisions over time
 """
 
 import asyncio

@@ -1,10 +1,10 @@
 # Industry Priors for Cold Start Optimization
 
-This document explains the industry-wide prior knowledge system used for cold start optimization in Conduit's contextual bandit routing.
+This document explains the industry-wide prior knowledge system used for cold start optimization in the Conduit Router's contextual bandit routing.
 
 ## Overview
 
-When Conduit starts routing queries to a new model or for a new user, it faces a "cold start" problem: without historical data, the bandit algorithm has no basis for estimating model quality. Industry priors provide informed starting points based on public benchmark data.
+When the Conduit Router starts routing queries to a new model or for a new user, it faces a "cold start" problem: without historical data, the bandit algorithm has no basis for estimating model quality. Industry priors provide informed starting points based on public benchmark data.
 
 ## Data Sources
 

@@ -1,6 +1,28 @@
 """Simple router example using the new Router class.
 
 This example demonstrates the basic Router interface as shown in the README.
+
+Requirements:
+    OPENAI_API_KEY or ANTHROPIC_API_KEY in environment
+
+Expected output:
+    Initializing Conduit Router...
+
+    Query: What is 2+2?
+
+    Routing to optimal model...
+
+    ============================================================
+    Routing Results
+    ============================================================
+    Selected Model: o4-mini
+    Confidence: 0.73
+    Reasoning: UCB selection with exploration bonus
+
+    Features:
+      - Token count: 6
+      - Complexity: 0.15
+      - Domain: general (0.85)
 """
 
 import asyncio

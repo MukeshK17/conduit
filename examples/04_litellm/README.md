@@ -301,11 +301,13 @@ The feedback loop updates the bandit algorithm, improving future routing decisio
 - **After 100 queries**: LinUCB uses query context for optimal selection
 - **Result**: 30% faster convergence vs pure LinUCB
 
-### Cost Savings
+### Cost Optimization
 
-Typical savings with Conduit vs random selection:
-- **30-50% cost reduction** by routing simple queries to cheaper models
-- **Quality maintained** by routing complex queries to powerful models
+Conduit is designed to optimize cost/quality trade-offs:
+- Routes simple queries to cheaper models when appropriate
+- Routes complex queries to powerful models when needed
+- Learns optimal routing patterns for your specific workload
+- Actual savings depend on your query mix and quality requirements
 
 ## Bootstrap Process
 

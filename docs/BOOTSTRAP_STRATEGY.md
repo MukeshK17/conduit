@@ -1,8 +1,8 @@
-# Conduit Bootstrap Strategy
+# Conduit Router Bootstrap Strategy
 
 ## Problem: Cold Start
 
-When Conduit first starts, it has:
+When the Conduit Router first starts, it has:
 - **No cost data** for models (doesn't know pricing)
 - **No performance data** (doesn't know quality, latency)
 - **No usage history** (contextual bandits need training data)

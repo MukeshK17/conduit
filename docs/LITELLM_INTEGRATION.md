@@ -1,6 +1,6 @@
 # LiteLLM Integration Status
 
-**Document Purpose**: Implementation status and usage guide for Conduit-LiteLLM integration
+**Document Purpose**: Implementation status and usage guide for Conduit Router-LiteLLM integration
 **Last Updated**: 2025-11-22
 **Status**: Path 1 COMPLETE, Path 2 not started
 
@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
+The Conduit Router integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
 
-### Path 1: Conduit as LiteLLM Routing Strategy ✅ COMPLETE
+### Path 1: Conduit Router as LiteLLM Routing Strategy ✅ COMPLETE
 - **Status**: Shipped in `conduit_litellm/` package with feedback loop
 - **Commits**: d7b69cc, ff06a46, c5dd24c, abcae20, [Issue #13 complete]
 - **Features**:
@@ -22,10 +22,10 @@ Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powere
 - **Usage**: See `conduit_litellm/README.md`
 - **Issues**: All complete ✅
 
-### Path 2: LiteLLM as Conduit Execution Backend ❌ NOT STARTED
+### Path 2: LiteLLM as Conduit Router Execution Backend ❌ NOT STARTED
 - **Status**: Not implemented, no current plans
 - **Reason**: Path 1 provides better strategic value
-- **Alternative**: Conduit continues using PydanticAI (8 providers)
+- **Alternative**: The Conduit Router continues using PydanticAI (8 providers)
 
 ---
 
@@ -135,7 +135,7 @@ This eliminates dependency on llm-prices.com for `conduit_litellm` usage.
 #### User Benefits
 - **Zero friction**: Add one line to existing LiteLLM setup
 - **Immediate value**: ML routing without changing code
-- **Learning**: Gets smarter with usage (30-50% cost savings)
+- **Learning**: Gets smarter with usage (learns optimal model selection)
 - **Flexibility**: Choose algorithm (Thompson, LinUCB, UCB1, etc.)
 
 ### Implementation Status
@@ -283,7 +283,7 @@ This would allow Conduit to use LiteLLM for execution while keeping ML routing. 
 
 ### Path 1 Positioning (Recommended)
 - **Tagline**: "ML-powered routing for LiteLLM"
-- **Elevator Pitch**: "Upgrade LiteLLM from rule-based routing (cheapest/fastest) to ML-based routing that learns which models work best for YOUR workload. 30-50% cost savings with one line of code."
+- **Elevator Pitch**: "Upgrade LiteLLM from rule-based routing (cheapest/fastest) to ML-based routing that learns which models work best for YOUR workload. Intelligent model selection with one line of code."
 - **Target**: LiteLLM users wanting smarter routing
 - **Competition**: None (only ML router in ecosystem)
 - **Distribution**: LiteLLM community, plugins page, blog posts
@@ -300,7 +300,7 @@ This would allow Conduit to use LiteLLM for execution while keeping ML routing. 
 **Say (Path 1)**:
 - "Make LiteLLM smarter with ML routing"
 - "Learns which models work best for your workload"
-- "30-50% cost savings through intelligent selection"
+- "Intelligent model selection optimized for your workload"
 - "One line to add: `set_custom_routing_strategy(ConduitRoutingStrategy())`"
 
 **Avoid**:

@@ -1,6 +1,28 @@
 """Basic routing example using Conduit.
 
 This example demonstrates simple query routing with ML-powered model selection.
+
+Requirements:
+    OPENAI_API_KEY or ANTHROPIC_API_KEY in environment
+
+Expected output:
+    Initializing Conduit Router...
+
+    Query: What is 2+2? Explain your reasoning.
+
+    Routing to optimal model...
+
+    ============================================================
+    Routing Results
+    ============================================================
+    Selected Model: o4-mini
+    Confidence: 0.73
+    Reasoning: UCB selection with exploration bonus
+
+    Features:
+      - Token count: 12
+      - Complexity: 0.25
+      - Domain: general (0.82)
 """
 
 import asyncio

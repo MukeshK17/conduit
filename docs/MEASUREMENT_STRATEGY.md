@@ -1,4 +1,4 @@
-# Conduit Measurement Strategy
+# Conduit Router Measurement Strategy
 
 **Purpose**: Systematic quality assessment and performance tracking for ML-powered routing.
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Conduit uses a **three-tier measurement strategy** to ensure routing quality, track performance, and guide algorithm improvements:
+The Conduit Router uses a **three-tier measurement strategy** to ensure routing quality, track performance, and guide algorithm improvements:
 
 1. **Tier 1: Core Metrics** (Issue #42) ✅ Complete - Regret calculation, quality trends, cost efficiency
 2. **Tier 2: Automated Evaluation** (Issues #42, #43) - LLM-as-judge ✅, embeddings database 📋

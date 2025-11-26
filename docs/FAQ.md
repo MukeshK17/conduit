@@ -6,7 +6,7 @@ Common questions about Conduit Router, especially for Hacker News readers.
 
 ## Why not just use LiteLLM Proxy/Gateway?
 
-**Short answer**: LiteLLM Proxy and Gateway are **static** routing systems. Conduit is **dynamic** and **learns** from your data.
+**Short answer**: LiteLLM Proxy and Gateway are **static** routing systems. The Conduit Router is **dynamic** and **learns** from your data.
 
 **Detailed comparison**:
 
@@ -20,15 +20,15 @@ Common questions about Conduit Router, especially for Hacker News readers.
 
 **When to use each**:
 - **LiteLLM**: Simple load balancing, rate limiting, API key management
-- **Conduit**: Cost optimization, quality guarantees, adaptive routing based on query patterns
+- **Conduit Router**: Cost optimization, quality guarantees, adaptive routing based on query patterns
 
-**Can I use both?** Yes! Use LiteLLM for API management and Conduit for intelligent routing.
+**Can I use both?** Yes! Use LiteLLM for API management and the Conduit Router for intelligent routing.
 
 ---
 
 ## How does it handle rate limits?
 
-Conduit includes built-in rate limiting support:
+The Conduit Router includes built-in rate limiting support:
 
 - **File**: `conduit/api/ratelimit.py`
 - **Features**:
@@ -52,7 +52,7 @@ Rate limits are enforced at the API layer and integrated with the routing decisi
 
 ## Can I use this with LangChain?
 
-**Yes!** Conduit has a LangChain integration.
+**Yes!** The Conduit Router has a LangChain integration.
 
 **Quick start**:
 ```python
@@ -81,30 +81,22 @@ result = await chain.ainvoke({"topic": "quantum computing"})
 
 ## Do you have benchmarks showing it actually saves money?
 
-**Yes!** We have comprehensive benchmarks demonstrating cost savings.
+**We're working on it.** Cost optimization is a core goal of the Conduit Router, but we're still validating the actual savings with real workloads.
 
-**Results** (from `benchmarks/cost_savings_comparison.py` with 1000 queries):
-- **vs. Always Best Model**: **50.0% cost savings** ($1.4070 vs $2.8140)
-  - Quality: 0.896 vs 0.930 (96% of quality, but 50% cheaper)
-  - Conduit maintains high quality while cutting costs in half
-- **vs. Always Cheap Model**: **Better quality** (0.896 vs 0.798) with reasonable cost
-  - Conduit: $1.4070, Static Cheap: $0.1407
-  - Conduit provides 12% better quality (0.896 vs 0.798)
-- **Adaptive routing**: Automatically selects optimal model per query based on complexity
-  - Uses 5 different models: claude-opus-4.5 (24.4%), gpt-5.1 (24.3%), claude-sonnet-4.5 (24.3%), o4-mini (13.9%), gemini-2.5-pro (13.1%)
-  - Query mix: 59.3% simple queries, 40.7% complex queries
-  - Learns optimal routing patterns over time
+**What we know:**
+- The Conduit Router learns which models work best for your specific workload
+- It routes simple queries to cheaper models and complex queries to premium models
+- The bandit algorithms are designed to optimize the cost/quality trade-off
 
-**Visualization**: See `cost_savings_graph.png` for cumulative cost comparison over time.
+**What we're validating:**
+- Actual cost savings vary by workload, query mix, and quality requirements
+- We're building comprehensive benchmarks to measure real-world performance
+- Results will be published once validated
 
-**Run benchmarks yourself**:
-```bash
-# Full benchmark (1000 queries)
-python benchmarks/cost_savings_comparison.py
-
-# Quick test (20 queries)
-python benchmarks/cost_savings_comparison.py 20
-```
+**Run your own tests:**
+- Use the Conduit Router with your actual queries and measure costs vs static routing
+- Compare against "always premium" and "always cheap" baselines
+- Track quality scores to ensure you're maintaining acceptable quality
 
 **Methodology**:
 - 1000+ queries with varying complexity (60% simple, 40% complex)
@@ -294,7 +286,7 @@ router = Router(models=["my-custom-model", "another-model"])
 
 **Development setup**:
 ```bash
-git clone https://github.com/yourusername/conduit
+git clone https://github.com/ashita-ai/conduit
 cd conduit
 uv sync --all-extras
 pytest

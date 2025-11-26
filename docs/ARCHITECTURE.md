@@ -1,13 +1,13 @@
-# Conduit - System Architecture
+# Conduit Router - System Architecture
 
-**Version**: 0.1.0
-**Date**: 2025-11-18
+**Version**: 0.0.5-alpha
+**Last Updated**: 2025-11-25
 
 ---
 
 ## Overview
 
-This document provides detailed technical architecture for Conduit's ML-powered LLM routing system.
+This document provides detailed technical architecture for the Conduit Router's ML-powered LLM routing system.
 
 ## System Context
 
@@ -911,5 +911,5 @@ logger.info(
 
 ---
 
-**Last Updated**: 2025-11-18
-**Next Review**: After Phase 1 implementation
+**Last Updated**: 2025-11-25
+**Status**: Phase 3 complete, performance optimizations shipped

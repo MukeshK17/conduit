@@ -1,15 +1,15 @@
-# Conduit Documentation
+# Conduit Router Documentation
 
-Comprehensive technical documentation for understanding and working with Conduit.
+Comprehensive technical documentation for understanding and working with the Conduit Router.
 
 ---
 
 ## Quick Start Paths
 
-### 🚀 New to Conduit?
+### 🚀 New to the Conduit Router?
 
 **Learn the Basics** (15 minutes):
-1. [BANDIT_TRAINING.md](BANDIT_TRAINING.md) - Understand how learning works (Thompson Sampling ≠ LLM Training)
+1. [BANDIT_TRAINING.md](BANDIT_TRAINING.md) - Understand why contextual bandits are the right abstraction
 2. [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) - See what models are available (71+ models, auto-detected)
 3. `../examples/01_quickstart/hello_world.py` - Run your first query (5 lines of code)
 
@@ -40,15 +40,15 @@ Comprehensive technical documentation for understanding and working with Conduit
 
 ---
 
-### 📊 Want to Prove Value?
+### 📊 Want to Measure Performance?
 
-**Cost Savings Demonstration** (1 hour):
-1. [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Multi-baseline methodology
-2. Create 1,000-query workload matching your use case
-3. Run comparison: Always Premium vs Manual vs Conduit
-4. Generate report with empirical cost savings
+**Benchmarking Guide**:
+1. [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Methodology for measuring routing performance
+2. Create workload matching your use case
+3. Run comparison: Always Premium vs Manual vs Conduit Router
+4. Measure cost, quality, and latency metrics
 
-**Expected Results**: 60% savings vs premium, 16% vs manual routing
+**What to Measure**: Cost per query, quality scores, latency, and model selection patterns
 
 ---
 
@@ -58,7 +58,7 @@ Comprehensive technical documentation for understanding and working with Conduit
 
 **Key Topics**:
 - Auto-fetch 71+ models from llm-prices.com (24h cache)
-- `supported_models()` - see what Conduit can use
+- `supported_models()` - see what the Conduit Router can use
 - `available_models()` - see what YOU can use (auto-detects API keys)
 - Zero maintenance (no hard-coded pricing tables)
 - Graceful degradation with fallback pricing
@@ -70,13 +70,13 @@ Comprehensive technical documentation for understanding and working with Conduit
 ### [BANDIT_TRAINING.md](BANDIT_TRAINING.md) - How Learning Works
 
 **Key Topics**:
-- Thompson Sampling ≠ LLM Fine-Tuning (fundamentally different!)
+- Why contextual bandits (not full RL) - the right abstraction for LLM routing
 - Online learning from feedback (no pre-training needed)
 - Learning phases: Cold Start → Learning → Converged
 - Feedback signals: Explicit (ratings) + Implicit (behavior)
 - The "Data Moat" competitive advantage
 
-**Read this if**: You want to understand how Conduit learns from usage
+**Read this if**: You want to understand how the Conduit Router learns from usage
 
 ---
 
@@ -93,16 +93,15 @@ Comprehensive technical documentation for understanding and working with Conduit
 
 ---
 
-### [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Proving Cost Savings
+### [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Benchmarking Methodology
 
 **Key Topics**:
 - Multi-baseline approach (Always Premium, Manual Routing, Random)
-- 1000-query workload design
-- Expected results: 60% savings vs premium, 16% vs manual
+- Workload design for measuring routing performance
 - Quality validation methodology
 - Report generation
 
-**Read this if**: You want to demonstrate empirical cost savings
+**Read this if**: You want to measure routing performance and compare strategies
 
 ---
 
@@ -176,8 +175,8 @@ Comprehensive documentation of all bandit algorithms.
 Strategic analysis and implementation plans for LiteLLM integration.
 
 **Paths**:
-- **Path 1** (Recommended): Conduit as LiteLLM routing strategy plugin
-- **Path 2**: LiteLLM as Conduit execution backend
+- **Path 1** (Recommended): Conduit Router as LiteLLM routing strategy plugin
+- **Path 2**: LiteLLM as Conduit Router execution backend
 
 **Benefits**:
 - Access to 100+ providers through LiteLLM ecosystem
@@ -231,15 +230,15 @@ Strategic analysis and implementation plans for LiteLLM integration.
 
 **...how pricing stays current**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (Dynamic Pricing section)
 
-**...how Conduit learns**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md)
+**...how the Conduit Router learns**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md)
 
-**...why it doesn't need pre-training**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md) (Thompson Sampling ≠ LLM Fine-Tuning section)
+**...why it doesn't need pre-training**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md) (Why Contextual Bandits section)
 
 **...how to reduce cold start problems**: → [COLD_START.md](COLD_START.md)
 
 **...sample efficiency (PCA, Hybrid Routing)**: → [HYBRID_ROUTING.md](HYBRID_ROUTING.md) + [PCA_GUIDE.md](PCA_GUIDE.md)
 
-**...how to prove cost savings**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md)
+**...how to benchmark routing performance**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md)
 
 **...how implicit feedback works**: → [IMPLICIT_FEEDBACK.md](IMPLICIT_FEEDBACK.md)
 
@@ -307,16 +306,16 @@ Monitor: Quality, cost, latency metrics
 
 ## Key Insights
 
-### Thompson Sampling vs LLM Training
+### Contextual Bandits vs Full RL
 
-| Aspect | LLMs | Bandits |
-|--------|------|---------|
-| Training | Offline | Online |
-| Data | Labeled corpus | Real-time feedback |
-| Cost | $100s-$1000s | Negligible |
-| Pre-training | Required | NOT needed |
+| Aspect | Contextual Bandits | Full RL (MDP) |
+|--------|-------------------|---------------|
+| State transitions | None - independent decisions | Actions affect future states |
+| Horizon | Single step | Multi-step episodes |
+| Credit assignment | Immediate reward | Delayed rewards |
+| Complexity | O(actions × features) | O(states × actions × transitions) |
 
-**Bottom Line**: Zero-shot deployment - no training phase required!
+**Bottom Line**: LLM routing has no state transitions. Bandits are the right abstraction.
 
 ---
 
@@ -335,35 +334,57 @@ Monitor: Quality, cost, latency metrics
 
 ---
 
-### Benchmark Strategy
+## Documentation Status
 
-**Three Baselines**:
-- Always Premium (GPT-4o): $4.50/1K queries
-- Manual Routing: $1.96/1K queries
-- Conduit (Learned): $1.65/1K queries
-
-**Value Props**:
-- "63% cheaper than always-premium"
-- "16% cheaper than manual routing"
-- "95%+ quality maintained"
+| Document | Purpose | Status |
+|----------|---------|--------|
+| **Core Concepts** | | |
+| [BANDIT_TRAINING.md](BANDIT_TRAINING.md) | How learning works, why bandits | ✅ Complete |
+| [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) | All 9 algorithm implementations | ✅ Complete |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design and components | ✅ Complete |
+| **Optimization** | | |
+| [COLD_START.md](COLD_START.md) | Reducing early routing mistakes | ✅ Complete |
+| [HYBRID_ROUTING.md](HYBRID_ROUTING.md) | UCB1→LinUCB warm start | ✅ Complete |
+| [PCA_GUIDE.md](PCA_GUIDE.md) | Dimensionality reduction | ✅ Complete |
+| [PRIORS.md](PRIORS.md) | Industry priors for cold start | ✅ Complete |
+| **Integration** | | |
+| [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) | LiteLLM plugin strategy | ✅ Complete |
+| [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) | Dynamic pricing & model detection | ✅ Complete |
+| [EMBEDDING_PROVIDERS.md](EMBEDDING_PROVIDERS.md) | Embedding provider options | ✅ Complete |
+| **Operations** | | |
+| [BOOTSTRAP_STRATEGY.md](BOOTSTRAP_STRATEGY.md) | Configuration and startup | ✅ Complete |
+| [IMPLICIT_FEEDBACK.md](IMPLICIT_FEEDBACK.md) | Automatic feedback detection | ✅ Complete |
+| [MEASUREMENT_STRATEGY.md](MEASUREMENT_STRATEGY.md) | Quality tracking and metrics | ✅ Complete |
+| [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) | Benchmarking methodology | ✅ Complete |
+| **Support** | | |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Debugging common issues | ✅ Complete |
+| [FAQ.md](FAQ.md) | Frequently asked questions | ✅ Complete |
+| **Quick Reference** | | |
+| [CONFIGURATION.md](CONFIGURATION.md) | All config options in one place | ✅ Complete |
+| [RECIPES.md](RECIPES.md) | Copy-paste code for common tasks | ✅ Complete |
 
 ---
 
-## Documentation Status
+## Glossary
 
-| Document | Lines | Last Updated | Status |
-|----------|-------|--------------|--------|
-| BANDIT_ALGORITHMS.md | 1,084 | 2025-11-22 | ✅ Complete |
-| BANDIT_TRAINING.md | 542 | 2025-11-23 | ✅ Complete |
-| HYBRID_ROUTING.md | 461 | 2025-01-22 | ✅ Complete |
-| PCA_GUIDE.md | 574 | 2025-01-22 | ✅ Complete |
-| COLD_START.md | 640 | 2025-01-22 | ✅ Complete |
-| MODEL_DISCOVERY.md | 584 | 2025-11-20 | ✅ Complete |
-| LITELLM_INTEGRATION.md | 591 | 2025-11-21 | ✅ Complete |
-| BENCHMARK_STRATEGY.md | 584 | 2025-11-19 | ✅ Complete |
-| IMPLICIT_FEEDBACK.md | 516 | 2025-11-19 | ✅ Complete |
-| MEASUREMENT_STRATEGY.md | 550 | 2025-11-22 | ✅ Complete |
-| ARCHITECTURE.md | 897 | 2025-11-18 | ✅ Complete |
+| Term | Definition |
+|------|------------|
+| **Arm** | A model option in the bandit algorithm (e.g., gpt-4o-mini is one "arm") |
+| **Bandit** | Algorithm that balances trying new options (exploration) vs using known-good options (exploitation) |
+| **Contextual Bandit** | Bandit that uses query features (context) to make decisions, not just historical rewards |
+| **Cold Start** | The period before the bandit has enough data to make confident routing decisions |
+| **Convergence** | When the bandit has learned enough to make stable, near-optimal routing decisions |
+| **Exploration** | Trying different models to learn their performance |
+| **Exploitation** | Using the model known to work best based on past data |
+| **Features** | Query characteristics used for routing: embedding (384 dims), token count, complexity, domain |
+| **Hybrid Routing** | Two-phase strategy: UCB1 (fast warmup) then LinUCB (contextual refinement) |
+| **LinUCB** | Linear Upper Confidence Bound - contextual bandit using ridge regression |
+| **PCA** | Principal Component Analysis - reduces 387 features to 67 for faster learning |
+| **Priors** | Initial beliefs about model quality, used to speed up cold start |
+| **Regret** | Difference between optimal choice and actual choice; lower is better |
+| **Reward** | Composite score (quality + cost + latency) used to train the bandit |
+| **Thompson Sampling** | Bayesian bandit algorithm that samples from probability distributions |
+| **UCB1** | Upper Confidence Bound - non-contextual bandit with logarithmic exploration |
 
 ---
 

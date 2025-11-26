@@ -1,6 +1,6 @@
 # Bandit Algorithms Guide
 
-**Purpose**: Understand the multi-armed bandit algorithms available in Conduit for intelligent LLM routing.
+**Purpose**: Understand the multi-armed bandit algorithms available in the Conduit Router for intelligent LLM routing.
 
 **Last Updated**: 2025-11-21
 **Status**: Complete - 6 algorithms implemented and tested (2 contextual, 4 non-contextual)
@@ -9,7 +9,7 @@
 
 ## Overview
 
-Conduit uses **contextual multi-armed bandit algorithms** to learn which LLM model to use for each query. The system balances:
+The Conduit Router uses **contextual multi-armed bandit algorithms** to learn which LLM model to use for each query. The system balances:
 
 - **Exploration**: Try different models to discover their strengths
 - **Exploitation**: Use known-good models to maximize quality/minimize cost
@@ -18,7 +18,7 @@ Conduit uses **contextual multi-armed bandit algorithms** to learn which LLM mod
 
 Imagine a casino with multiple slot machines (arms). Each machine has an unknown payout rate. Your goal: maximize total winnings by learning which machines pay best while still exploring new ones.
 
-**In Conduit's context**:
+**In the Conduit Router's context**:
 - **Arms**: LLM models (GPT-4o, Claude Sonnet, Gemini Pro, etc.)
 - **Context**: Query features (embedding, complexity, domain, token count)
 - **Reward**: Multi-objective composite (quality + cost + latency)

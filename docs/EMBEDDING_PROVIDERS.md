@@ -1,6 +1,6 @@
 # Embedding Providers Guide
 
-Conduit supports multiple embedding providers for query feature extraction. Choose the provider that best fits your needs based on cost, quality, and deployment requirements.
+The Conduit Router supports multiple embedding providers for query feature extraction. Choose the provider that best fits your needs based on cost, quality, and deployment requirements.
 
 ## Quick Comparison
 
@@ -13,7 +13,7 @@ Conduit supports multiple embedding providers for query feature extraction. Choo
 
 ## Default Behavior
 
-**Conduit uses HuggingFace Inference API by default** - no API key or additional dependencies required. This provides a lightweight, free option that works out of the box.
+**The Conduit Router uses HuggingFace Inference API by default** - no API key or additional dependencies required. This provides a lightweight, free option that works out of the box.
 
 ```python
 from conduit.engines.router import Router

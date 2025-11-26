@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-**Purpose**: Debug common issues with Conduit's ML-powered routing system
+**Purpose**: Debug common issues with the Conduit Router's ML-powered routing system
 
 **Last Updated**: 2025-11-24
 

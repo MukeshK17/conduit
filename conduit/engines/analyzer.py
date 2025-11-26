@@ -135,7 +135,7 @@ class QueryAnalyzer:
 
         # Cache miss or no cache - compute features
         # Generate embedding using provider
-        embedding_list = await self.embedding_provider.embed(query.text)
+        embedding_list = await self.embedding_provider.embed(query)
 
         # Apply PCA if enabled
         if self.use_pca and self.pca is not None:
@@ -152,13 +152,13 @@ class QueryAnalyzer:
             embedding_list = embedding_array.tolist()
 
         # Estimate token count (rough approximation)
-        token_count = self._estimate_tokens(query.text)
+        token_count = self._estimate_tokens(query)
 
         # Compute complexity score (0.0-1.0)
-        complexity_score = self._compute_complexity(query.text, token_count)
+        complexity_score = self._compute_complexity(query, token_count)
 
         # Classify domain
-        domain, domain_confidence = self.domain_classifier.classify(query.text)
+        domain, domain_confidence = self.domain_classifier.classify(query)
 
         features = QueryFeatures(
             embedding=embedding_list,

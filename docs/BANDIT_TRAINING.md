@@ -1,10 +1,10 @@
 # Bandit Training Strategy
 
-**Key Insight**: Bandit algorithms (contextual learning) are NOT like fine-tuning LLMs - they're fundamentally different.
+**Key Insight**: Contextual bandits are the right abstraction for LLM routing - full RL would model state transitions that don't exist.
 
 ## Algorithm Selection
 
-Conduit implements **6 bandit algorithms** for different use cases:
+The Conduit Router implements **6 bandit algorithms** for different use cases:
 
 ### Contextual Algorithms (Recommended)
 **Use query features** to make smarter routing decisions:
@@ -52,50 +52,75 @@ Conduit implements **6 bandit algorithms** for different use cases:
 
 **Production Recommendation**: Use **LinUCB** (contextual) or **Hybrid Routing** (UCB1→LinUCB warm start) for best results. See [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) for comprehensive algorithm details.
 
-## Bandit Learning ≠ LLM Fine-Tuning
+## Why Contextual Bandits (Not Full RL)
 
-### Critical Differences
+Contextual bandits are a subset of reinforcement learning, optimized for problems like LLM routing. Here's why we use bandits instead of full RL:
 
-| Aspect | LLM Fine-Tuning | Bandit Algorithms |
-|--------|-----------------|-------------------|
-| **Training Type** | Offline, pre-deployment | Online, during usage |
-| **Data Required** | Labeled training corpus | Real-time feedback |
-| **Computation** | GPU hours, expensive | Simple matrix ops (contextual) or arithmetic (non-contextual) |
-| **Parameters** | Neural network weights (millions) | Small state (matrices per arm or Beta distributions) |
-| **Pre-Training** | Required before deployment | NOT needed - zero-shot deployment |
-| **Learning Speed** | Hours/days | Converges in 1,500-15,000 queries (algorithm-dependent) |
-| **Cost** | $100s-$1000s in compute | Negligible |
+### The Key Distinction
 
-### Why This Matters
+| Aspect | Contextual Bandits | Full RL (MDP) |
+|--------|-------------------|---------------|
+| **State transitions** | None - each decision independent | Actions affect future states |
+| **Horizon** | Single step | Multi-step episodes |
+| **Credit assignment** | Immediate reward only | Delayed rewards across trajectory |
+| **Complexity** | O(actions × features) | O(states × actions × transitions) |
+| **Computation** | Matrix ops, real-time | Often needs simulation/replay |
 
-**LLM fine-tuning**:
+### Why Bandits Fit LLM Routing
+
+**1. No state transitions exist**
+
+Routing query A to GPT-4 doesn't change the environment for query B. Each query is independent - there's no "game state" evolving. Full RL would model transitions that don't exist.
+
+**2. Immediate rewards**
+
+You know immediately if the response was good/fast/cheap. No delayed credit assignment problem. No need to propagate rewards backward through a trajectory.
+
+**3. Context informs but isn't state**
+
+Query features (embedding, complexity, domain) inform the decision, but they're not "state" that your actions modify. Pure bandits (UCB1, Thompson) ignore context; contextual bandits (LinUCB) use it.
+
+**4. Computational tractability**
+
 ```python
-# Traditional approach - offline training
-model = GPT4()
-model.fine_tune(
-    training_data=labeled_corpus,  # Need 1000s of examples
-    epochs=3,
-    gpu_hours=10,                  # Expensive!
-    cost="$500"
-)
-# Deploy only after training complete
+# LinUCB: O(d²) per update where d=features
+# Real-time inference: ~1ms per routing decision
+
+# Full RL would need:
+# - Q(s,a) for exponentially many states
+# - Experience replay buffers
+# - Target networks
+# - Much higher latency
 ```
 
-**Bandit learning**:
-```python
-# Our approach - online learning
-bandit = ContextualBandit(models=["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"])
+### When You'd Need Full RL Instead
 
-# Deploy immediately with zero training!
-# Learns from every single query:
+Full RL makes sense when actions affect future states:
+
+- **Multi-turn conversations**: Earlier routing affects later context window
+- **Budget constraints across sessions**: Route cheap now to afford expensive later
+- **Caching strategies**: Routing affects future cache hit rates
+- **Rate limit management**: Current usage affects future availability
+
+None of these apply to single-query routing, which is why contextual bandits are the right abstraction.
+
+### Zero-Shot Deployment
+
+The practical advantage: bandits learn online with no pre-training.
+
+```python
+# Deploy immediately - no training data needed
+bandit = LinUCBBandit(models=["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"])
+
+# Learns from every query in production:
 for query in production_traffic:
     model = bandit.select(features)      # Pick model (exploration/exploitation)
     result = execute_llm(model, query)   # Execute
     feedback = collect_feedback(result)  # Errors, latency, ratings
-    bandit.update(model, reward)         # Learn! (just arithmetic)
+    bandit.update(model, reward)         # Learn! (just matrix arithmetic)
 ```
 
-**Zero-shot deployment** - this is the magic! No training data, no GPU hours, no pre-deployment phase.
+No GPU hours, no training corpus, no pre-deployment phase. Start routing immediately, improve continuously.
 
 ## How Bandit Algorithms Learn
 
@@ -538,4 +563,4 @@ bandit.reset(retain_fraction=0.0)  # Back to uniform priors
 - **Feedback System**: [IMPLICIT_FEEDBACK.md](IMPLICIT_FEEDBACK.md) - Automatic behavioral signals
 - **Cold Start Solutions**: [COLD_START.md](COLD_START.md) - Reducing sample requirements
 - **Hybrid Routing**: [HYBRID_ROUTING.md](HYBRID_ROUTING.md) - UCB1→LinUCB warm start
-- **Benchmark Strategy**: [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Proving cost savings
+- **Benchmark Strategy**: [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md) - Benchmarking methodology

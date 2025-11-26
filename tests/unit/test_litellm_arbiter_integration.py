@@ -59,11 +59,13 @@ def mock_router():
     )
 
     # Mock LinUCB bandit arms for validation (matches feedback.py validation logic)
-    mock_linucb_bandit = MagicMock()
-    mock_linucb_bandit.arms = {
-        "gpt-4o-mini": MagicMock(model_id="gpt-4o-mini"),
+    # Note: feedback.py looks for "linucb" not "linucb_bandit"
+    # Note: model ID is mapped from "gpt-4o-mini" -> "o4-mini" by map_litellm_to_conduit()
+    mock_linucb = MagicMock()
+    mock_linucb.arms = {
+        "o4-mini": MagicMock(model_id="o4-mini"),
     }
-    router.hybrid_router.linucb_bandit = mock_linucb_bandit
+    router.hybrid_router.linucb = mock_linucb
 
     return router
 
@@ -105,7 +107,7 @@ class TestArbiterIntegration:
         response_obj = call_args[0][0]
         assert isinstance(response_obj, Response)
         assert response_obj.text == "Test response"
-        assert response_obj.model == "gpt-4o-mini"
+        assert response_obj.model == "o4-mini"  # mapped from gpt-4o-mini
         assert response_obj.cost == 0.0001
         assert response_obj.latency == 1.5  # end_time - start_time
         assert response_obj.tokens == 150

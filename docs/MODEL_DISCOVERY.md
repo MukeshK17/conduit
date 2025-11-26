@@ -8,7 +8,7 @@
 
 ## Overview
 
-Conduit uses a **dynamic model discovery** system that automatically fetches pricing and availability from [llm-prices.com](https://www.llm-prices.com), eliminating manual maintenance and ensuring access to the latest models and pricing.
+The Conduit Router uses a **dynamic model discovery** system that automatically fetches pricing and availability from [llm-prices.com](https://www.llm-prices.com), eliminating manual maintenance and ensuring access to the latest models and pricing.
 
 ### Key Benefits
 
