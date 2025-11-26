@@ -15,12 +15,7 @@ from collections import deque
 
 import numpy as np
 
-from conduit.core.defaults import (
-    EPSILON_DECAY_DEFAULT,
-    EPSILON_GREEDY_DEFAULT,
-    EPSILON_MIN_DEFAULT,
-    SUCCESS_THRESHOLD,
-)
+from conduit.core.config import load_algorithm_config
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -49,13 +44,13 @@ class EpsilonGreedyBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        epsilon: float = EPSILON_GREEDY_DEFAULT,
-        decay: float = EPSILON_DECAY_DEFAULT,
-        min_epsilon: float = EPSILON_MIN_DEFAULT,
+        epsilon: float | None = None,
+        decay: float | None = None,
+        min_epsilon: float | None = None,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = SUCCESS_THRESHOLD,
+        success_threshold: float | None = None,
     ) -> None:
         """Initialize Epsilon-Greedy algorithm.
 
@@ -86,6 +81,18 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>> # Sliding window of 1000 (non-stationary environment)
             >>> bandit3 = EpsilonGreedyBandit(arms, window_size=1000)
         """
+        # Load config if parameters not provided
+        if epsilon is None or decay is None or min_epsilon is None or success_threshold is None:
+            config = load_algorithm_config("epsilon_greedy")
+            if epsilon is None:
+                epsilon = config["epsilon"]
+            if decay is None:
+                decay = config["decay"]
+            if min_epsilon is None:
+                min_epsilon = config["min_epsilon"]
+            if success_threshold is None:
+                success_threshold = config.get("success_threshold", 0.85)
+
         # Validate epsilon parameter
         if not 0.0 <= epsilon <= 1.0:
             raise ValueError(f"Epsilon must be between 0 and 1, got {epsilon}")

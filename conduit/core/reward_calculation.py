@@ -36,7 +36,7 @@ Example:
     0.869
 """
 
-from conduit.core.defaults import DEFAULT_REWARD_WEIGHTS
+from conduit.core.config import load_routing_config
 
 
 def normalize_quality(quality_score: float) -> float:
@@ -215,13 +215,18 @@ def calculate_composite_reward(
         >>> print(f"{reward:.3f}")
         0.915
     """
-    # Use defaults if not provided
-    if quality_weight is None:
-        quality_weight = DEFAULT_REWARD_WEIGHTS["quality"]
-    if cost_weight is None:
-        cost_weight = DEFAULT_REWARD_WEIGHTS["cost"]
-    if latency_weight is None:
-        latency_weight = DEFAULT_REWARD_WEIGHTS["latency"]
+    # Use defaults if not provided (from balanced preset in routing config)
+    if quality_weight is None or cost_weight is None or latency_weight is None:
+        routing_config = load_routing_config()
+        default_preset = routing_config["default_optimization"]
+        default_weights = routing_config["presets"][default_preset]
+
+        if quality_weight is None:
+            quality_weight = default_weights["quality"]
+        if cost_weight is None:
+            cost_weight = default_weights["cost"]
+        if latency_weight is None:
+            latency_weight = default_weights["latency"]
 
     # Validate weights
     validate_weights(quality_weight, cost_weight, latency_weight)

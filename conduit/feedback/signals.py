@@ -8,6 +8,8 @@ Individual signal detectors that analyze specific behavioral patterns:
 
 from pydantic import BaseModel, Field
 
+from conduit.core.config import load_feedback_config
+
 
 class RetrySignal(BaseModel):
     """Retry behavior detection signal.
@@ -54,10 +56,13 @@ class LatencySignal(BaseModel):
     )
 
     def categorize_tolerance(self) -> None:
-        """Categorize tolerance based on actual latency."""
-        if self.actual_latency_seconds > 30:
+        """Categorize tolerance based on actual latency (from config)."""
+        config = load_feedback_config()
+        thresholds = config["latency_detection"]
+
+        if self.actual_latency_seconds > thresholds["medium_tolerance_max"]:
             self.tolerance_level = "low"  # Very slow, user was patient
-        elif self.actual_latency_seconds > 10:
+        elif self.actual_latency_seconds > thresholds["high_tolerance_max"]:
             self.tolerance_level = "medium"  # Somewhat slow
         else:
             self.tolerance_level = "high"  # Fast, no patience needed

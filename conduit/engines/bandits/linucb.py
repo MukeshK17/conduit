@@ -6,8 +6,9 @@ selects arms using an upper confidence bound that balances exploitation
 (expected reward) and exploration (uncertainty).
 
 Supports sliding window for non-stationarity: maintains only recent N observations
-to adapt to model quality/cost changes over time. With sliding window, recomputes
-A and b matrices from windowed history on each update.
+to adapt to model quality/cost changes over time. With sliding window, uses Woodbury
+identity for O(d²) incremental updates (downdate oldest + update newest) instead of
+O(W·d² + d³) full recalculation.
 
 Reference: https://arxiv.org/abs/1003.0146 (Li et al. 2010)
 Tutorial: https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/
@@ -18,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-from conduit.core.defaults import LINUCB_ALPHA_DEFAULT, SUCCESS_THRESHOLD
+from conduit.core.config import load_algorithm_config, load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -55,12 +56,12 @@ class LinUCBBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        alpha: float = LINUCB_ALPHA_DEFAULT,
-        feature_dim: int = 387,  # 384 embedding + 3 metadata
+        alpha: float | None = None,
+        feature_dim: int | None = None,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = SUCCESS_THRESHOLD,
+        success_threshold: float | None = None,
     ) -> None:
         """Initialize LinUCB algorithm.
 
@@ -88,6 +89,18 @@ class LinUCBBandit(BanditAlgorithm):
             >>> bandit2 = LinUCBBandit(arms, alpha=1.5, window_size=1000)
         """
         super().__init__(name="linucb", arms=arms)
+
+        # Load config if parameters not provided
+        if alpha is None or success_threshold is None:
+            algo_config = load_algorithm_config("linucb")
+            if alpha is None:
+                alpha = algo_config["alpha"]
+            if success_threshold is None:
+                success_threshold = algo_config.get("success_threshold", 0.85)
+
+        if feature_dim is None:
+            feature_config = load_feature_dimensions()
+            feature_dim = feature_config["full_dim"]
 
         self.alpha = alpha
         self.feature_dim = feature_dim
@@ -181,13 +194,14 @@ class LinUCBBandit(BanditAlgorithm):
         Uses multi-objective reward (quality + cost + latency) for regression updates.
 
         With sliding window (window_size > 0):
-        - Stores observation (x, r) in history deque (automatically drops oldest when full)
-        - Recalculates A and b from all observations in current window:
-            A = I + sum(x_i @ x_i^T for all i in window)
-            b = sum(r_i * x_i for all i in window)
+        - Uses Woodbury identity for O(d²) incremental updates
+        - Downdates A_inv when oldest observation drops (rank-1 downdate)
+        - Updates A_inv with new observation (Sherman-Morrison rank-1 update)
+        - Complexity: O(d²) per update (vs O(W·d² + d³) for full recalculation)
 
         Without window (window_size = 0):
         - Incremental update: A += x @ x^T, b += r * x
+        - Uses Sherman-Morrison for O(d²) A_inv updates
 
         Args:
             feedback: Feedback from model execution
@@ -213,26 +227,67 @@ class LinUCBBandit(BanditAlgorithm):
 
         x = self._extract_features(features)
 
-        # Add observation to history
-        self.observation_history[model_id].append((x, reward))
-
         # Two update strategies:
-        # 1. Sliding window: Recalculate A, b, and A_inv from windowed history
+        # 1. Sliding window: Use Woodbury identity for incremental downdate + Sherman-Morrison update
         # 2. No window: Use Sherman-Morrison for incremental A_inv update
 
         if self.window_size > 0:
-            # Sliding window: Recalculate from history (observations may have been dropped)
-            # A = I + sum(x_i @ x_i^T for all i in window)
-            # b = sum(r_i * x_i for all i in window)
-            self.A[model_id] = np.identity(self.feature_dim)
-            self.b[model_id] = np.zeros((self.feature_dim, 1))
+            # Sliding window: Optimized incremental update using Woodbury identity
+            # Check if window is full (will drop oldest observation)
+            history = self.observation_history[model_id]
+            will_drop_oldest = len(history) == self.window_size
 
-            for obs_x, obs_r in self.observation_history[model_id]:
-                self.A[model_id] += obs_x @ obs_x.T
-                self.b[model_id] += obs_r * obs_x
+            if will_drop_oldest:
+                # Get oldest observation that will be dropped
+                oldest_x, oldest_r = history[0]
 
-            # Recompute A_inv after rebuilding A
-            self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # np.linalg.inv returns compatible dtype
+                # Downdate A_inv using Woodbury identity: (A - xx^T)^-1 = A^-1 + (A^-1 x)(x^T A^-1) / (1 - x^T A^-1 x)
+                a_inv_oldest_x = self.A_inv[model_id] @ oldest_x  # d×1 vector
+                downdate_denominator = 1.0 - float(
+                    (oldest_x.T @ a_inv_oldest_x)[0, 0]
+                )  # scalar
+
+                # Numerical stability check for downdate
+                if abs(downdate_denominator) > 1e-10:
+                    # Downdate A_inv (remove oldest observation)
+                    self.A_inv[model_id] += (
+                        a_inv_oldest_x @ a_inv_oldest_x.T
+                    ) / downdate_denominator
+                    # Downdate A and b
+                    self.A[model_id] -= oldest_x @ oldest_x.T
+                    self.b[model_id] -= oldest_r * oldest_x
+                else:
+                    # Fallback: Rebuild from history if numerical issues
+                    self.A[model_id] = np.identity(self.feature_dim)
+                    self.b[model_id] = np.zeros((self.feature_dim, 1))
+                    for obs_x, obs_r in history:
+                        self.A[model_id] += obs_x @ obs_x.T
+                        self.b[model_id] += obs_r * obs_x
+                    self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]
+
+            # Add new observation to history (deque automatically drops oldest if full)
+            history.append((x, reward))
+
+            # Update A and b with new observation
+            self.A[model_id] += x @ x.T
+            self.b[model_id] += reward * x
+
+            # Update A_inv using Sherman-Morrison formula: (A + xx^T)^-1 = A^-1 - (A^-1 x x^T A^-1) / (1 + x^T A^-1 x)
+            a_inv_x = self.A_inv[model_id] @ x  # d×1 vector
+            update_denominator = 1.0 + float((x.T @ a_inv_x)[0, 0])  # scalar
+
+            # Numerical stability check for update
+            if update_denominator > 1e-10:
+                # Update A_inv incrementally using Sherman-Morrison
+                self.A_inv[model_id] -= (a_inv_x @ a_inv_x.T) / update_denominator
+            else:
+                # Fallback: Rebuild from history if numerical issues
+                self.A[model_id] = np.identity(self.feature_dim)
+                self.b[model_id] = np.zeros((self.feature_dim, 1))
+                for obs_x, obs_r in history:
+                    self.A[model_id] += obs_x @ obs_x.T
+                    self.b[model_id] += obs_r * obs_x
+                self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]
         else:
             # No sliding window: Use Sherman-Morrison incremental update
             # Update A and b incrementally

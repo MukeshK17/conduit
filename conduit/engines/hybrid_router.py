@@ -11,6 +11,7 @@ providing a warm start for the contextual algorithm.
 import logging
 from typing import Any
 
+from conduit.core.config import load_context_priors
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits import LinUCBBandit, UCB1Bandit
@@ -65,11 +66,9 @@ class HybridRouter:
 
         Args:
             models: List of model IDs to route between
-            switch_threshold: Query count to switch from UCB1 to LinUCB (default: 2000)
+            switch_threshold: Query count to switch from UCB1 to LinUCB (default: 0 = start with LinUCB)
             analyzer: Query analyzer for feature extraction (created if None)
             feature_dim: Feature dimensionality for LinUCB (default: 387, or 67 with PCA)
-            ucb1_c: UCB1 exploration parameter (default: 1.5)
-            linucb_alpha: LinUCB exploration parameter (default: 1.0)
             ucb1_c: UCB1 exploration parameter (default: 1.5)
             linucb_alpha: LinUCB exploration parameter (default: 1.0)
             reward_weights: Multi-objective reward weights (quality, cost, latency)
@@ -177,8 +176,11 @@ class HybridRouter:
 
         # Route based on current phase
         if self.current_phase == "ucb1":
-            # UCB1: Non-contextual routing (no feature extraction needed)
-            # Use dummy features since UCB1 doesn't use them
+            # UCB1: Non-contextual routing
+            # Extract real features for confidence calculation (UCB1 ignores them for selection)
+            features = await self.analyzer.analyze(query.text)
+
+            # Use dummy features for UCB1 selection (it doesn't use them anyway)
             dummy_features = QueryFeatures(
                 embedding=[0.0] * 384,
                 token_count=len(query.text.split()),
@@ -187,13 +189,17 @@ class HybridRouter:
                 domain_confidence=0.5,
             )
             arm = await self.ucb1.select_arm(dummy_features)
-            confidence = self._calculate_ucb1_confidence(arm.model_id)
+
+            # Calculate confidence using real domain from features
+            confidence = self._calculate_ucb1_confidence(
+                arm.model_id, features.domain, features.domain_confidence
+            )
 
             return RoutingDecision(
                 query_id=query.id,
                 selected_model=arm.model_id,
                 confidence=confidence,
-                features=dummy_features,
+                features=features,  # Use real features in response
                 reasoning=f"Hybrid routing (phase: ucb1, query {self.query_count}/{self.switch_threshold})",
                 metadata={
                     "phase": "ucb1",
@@ -206,10 +212,10 @@ class HybridRouter:
             features = await self.analyzer.analyze(query.text)
             arm = await self.linucb.select_arm(features)
 
-            # Get LinUCB confidence (based on uncertainty)
-            stats = self.linucb.get_stats()
-            pulls = stats["arm_pulls"].get(arm.model_id, 0)
-            confidence = min(0.99, pulls / 1000.0) if pulls > 0 else 0.1
+            # Calculate confidence using context-specific priors + pull count
+            confidence = self._calculate_linucb_confidence(
+                arm.model_id, features.domain, features.domain_confidence
+            )
 
             return RoutingDecision(
                 query_id=query.id,
@@ -298,26 +304,107 @@ class HybridRouter:
         self.current_phase = "linucb"
         logger.info("Transition complete. Now using LinUCB with contextual features.")
 
-    def _calculate_ucb1_confidence(self, model_id: str) -> float:
-        """Calculate confidence for UCB1 selection.
+    def _calculate_ucb1_confidence(
+        self, model_id: str, domain: str, domain_confidence: float
+    ) -> float:
+        """Calculate confidence for UCB1 selection using context priors.
 
         Args:
             model_id: Selected model ID
+            domain: Query domain for prior lookup
+            domain_confidence: Confidence in domain detection (0.0-1.0)
 
         Returns:
-            Confidence score (0.0-1.0) based on number of pulls
+            Confidence score (0.0-1.0) blending priors and pull count
         """
         stats = self.ucb1.get_stats()
         pulls = stats["arm_pulls"].get(model_id, 0)
 
-        # Confidence increases with pulls, caps at 0.95
-        # Uses logarithmic scale for faster initial growth
-        # pulls=1 → 0.15, pulls=10 → 0.35, pulls=100 → 0.6, pulls=1000 → 0.8
+        # 1. Get context-specific prior confidence
+        context_priors = load_context_priors(domain)
+        prior_confidence = 0.5  # Default neutral prior
+
+        if model_id in context_priors:
+            alpha, beta = context_priors[model_id]
+            prior_confidence = alpha / (alpha + beta)
+
+        # 2. Calculate pull-based confidence
         if pulls == 0:
-            return 0.1
+            pull_confidence = 0.1
         else:
             import math
-            return min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
+            pull_confidence = min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
+
+        # 3. Blend prior and empirical confidence
+        prior_weight = domain_confidence / (1.0 + pulls / 100.0)
+        empirical_weight = 1.0 - prior_weight
+
+        blended_confidence = (
+            prior_weight * prior_confidence + empirical_weight * pull_confidence
+        )
+
+        return min(0.95, blended_confidence)
+
+    def _calculate_linucb_confidence(
+        self, model_id: str, domain: str, domain_confidence: float
+    ) -> float:
+        """Calculate confidence for LinUCB selection using context priors.
+
+        Combines two confidence sources:
+        1. Context-specific Beta priors (domain knowledge)
+        2. Pull-based uncertainty (empirical data)
+
+        Args:
+            model_id: Selected model ID
+            domain: Query domain (code, creative, analysis, simple_qa, general)
+            domain_confidence: Confidence in domain detection (0.0-1.0)
+
+        Returns:
+            Confidence score (0.0-1.0) blending priors and data
+
+        Example:
+            >>> # First query in "code" domain with high domain confidence
+            >>> confidence = router._calculate_linucb_confidence(
+            ...     "gpt-4o", "code", 0.9
+            ... )
+            >>> # Returns ~0.85 (high prior confidence for gpt-4o on code)
+            >>>
+            >>> # After 500 pulls, prior influence decreases
+            >>> confidence = router._calculate_linucb_confidence(
+            ...     "gpt-4o", "code", 0.9
+            ... )
+            >>> # Returns ~0.92 (blend of prior + empirical data)
+        """
+        stats = self.linucb.get_stats()
+        pulls = stats["arm_pulls"].get(model_id, 0)
+
+        # 1. Get context-specific prior confidence
+        context_priors = load_context_priors(domain)
+        prior_confidence = 0.5  # Default neutral prior
+
+        if model_id in context_priors:
+            alpha, beta = context_priors[model_id]
+            # Beta distribution mean = alpha / (alpha + beta)
+            prior_confidence = alpha / (alpha + beta)
+
+        # 2. Calculate pull-based confidence
+        # Converges slower (1000 pulls → 0.99) to avoid overconfidence
+        pull_confidence = min(0.99, pulls / 1000.0) if pulls > 0 else 0.1
+
+        # 3. Blend prior and empirical confidence
+        # Early: Rely on priors (weighted by domain_confidence)
+        # Later: Rely on empirical data (as pulls increase)
+        #
+        # Blend weight decays with pulls:
+        # pulls=0 → 100% prior, pulls=100 → 50% prior, pulls=500 → 10% prior
+        prior_weight = domain_confidence / (1.0 + pulls / 100.0)
+        empirical_weight = 1.0 - prior_weight
+
+        blended_confidence = (
+            prior_weight * prior_confidence + empirical_weight * pull_confidence
+        )
+
+        return min(0.99, blended_confidence)
 
     def get_stats(self) -> dict[str, Any]:
         """Get routing statistics.

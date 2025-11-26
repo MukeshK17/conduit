@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel, Field
 
-from conduit.core.defaults import TOKEN_COUNT_NORMALIZATION
+from conduit.core.config import load_feature_dimensions
 from conduit.core.models import QueryFeatures
 from conduit.core.reward_calculation import calculate_composite_reward
 
@@ -209,7 +209,7 @@ class BanditAlgorithm(ABC):
 
         Combines embedding vector with metadata features:
         - embedding (384 dims)
-        - token_count (1 dim, normalized by TOKEN_COUNT_NORMALIZATION)
+        - token_count (1 dim, normalized by config token_count_normalization)
         - complexity_score (1 dim)
         - domain_confidence (1 dim)
 
@@ -231,11 +231,15 @@ class BanditAlgorithm(ABC):
             >>> x.shape
             (387, 1)
         """
+        # Load feature config for normalization constant
+        feature_config = load_feature_dimensions()
+        token_normalization = feature_config["token_count_normalization"]
+
         # Combine embedding with metadata
         feature_vector = np.array(
             features.embedding
             + [
-                features.token_count / TOKEN_COUNT_NORMALIZATION,
+                features.token_count / token_normalization,
                 features.complexity_score,
                 features.domain_confidence,
             ]

@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from conduit.core.defaults import SUCCESS_THRESHOLD, THOMPSON_LAMBDA_DEFAULT
+from conduit.core.config import load_algorithm_config, load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -57,12 +57,12 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        lambda_reg: float = THOMPSON_LAMBDA_DEFAULT,
-        feature_dim: int = 387,  # 384 embedding + 3 metadata
+        lambda_reg: float | None = None,
+        feature_dim: int | None = None,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = SUCCESS_THRESHOLD,
+        success_threshold: float | None = None,
     ) -> None:
         """Initialize Contextual Thompson Sampling algorithm.
 
@@ -91,6 +91,18 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             >>> bandit2 = ContextualThompsonSamplingBandit(arms, lambda_reg=1.0, window_size=1000)
         """
         super().__init__(name="contextual_thompson_sampling", arms=arms)
+
+        # Load config if parameters not provided
+        if lambda_reg is None or success_threshold is None:
+            algo_config = load_algorithm_config("thompson_sampling")
+            if lambda_reg is None:
+                lambda_reg = algo_config["lambda"]
+            if success_threshold is None:
+                success_threshold = algo_config.get("success_threshold", 0.85)
+
+        if feature_dim is None:
+            feature_config = load_feature_dimensions()
+            feature_dim = feature_config["full_dim"]
 
         self.lambda_reg = lambda_reg
         self.feature_dim = feature_dim

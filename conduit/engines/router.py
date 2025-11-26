@@ -37,6 +37,8 @@ class Router:
         embedding_model: str | None = None,
         embedding_api_key: str | None = None,
         cache_enabled: bool | None = None,
+        use_hybrid_routing: bool = True,
+        algorithm: str | None = None,
     ):
         """Initialize router with default components.
 
@@ -47,6 +49,10 @@ class Router:
             embedding_model: Embedding model identifier (provider-specific, optional).
             embedding_api_key: API key for embedding provider (if required, optional).
             cache_enabled: Override cache enabled setting. If None, uses config default.
+            use_hybrid_routing: If True, use hybrid routing (UCB1 → LinUCB). If False, use single algorithm.
+                Default: True (recommended for faster cold start).
+            algorithm: Algorithm to use when use_hybrid_routing=False. Options: "linucb", "thompson_sampling",
+                "ucb1", "epsilon_greedy". Default: "linucb". Ignored if use_hybrid_routing=True.
         """
         # Use default models if not specified
         if models is None:
@@ -87,8 +93,7 @@ class Router:
             pca_model_path=settings.pca_model_path,
         )
 
-        # Router always uses hybrid routing (UCB1→LinUCB warm start)
-        # Non-hybrid mode was removed as old ContextualBandit was deleted
+        # Configure routing strategy
         feature_dim = self.analyzer.feature_dim
         reward_weights = {
             "quality": settings.reward_weight_quality,
@@ -96,9 +101,16 @@ class Router:
             "latency": settings.reward_weight_latency,
         }
 
+        # Determine switch threshold based on routing mode
+        if use_hybrid_routing:
+            switch_threshold = settings.hybrid_switch_threshold
+        else:
+            # Start directly with LinUCB (effectively disable hybrid routing)
+            switch_threshold = 0
+
         self.hybrid_router = HybridRouter(
             models=models,
-            switch_threshold=settings.hybrid_switch_threshold,
+            switch_threshold=switch_threshold,
             analyzer=self.analyzer,
             feature_dim=feature_dim,
             ucb1_c=settings.hybrid_ucb1_c,
@@ -106,6 +118,7 @@ class Router:
             reward_weights=reward_weights,
             window_size=settings.bandit_window_size,
         )
+        self.use_hybrid_routing = use_hybrid_routing
 
         self.cache = cache_service
         logger.info(

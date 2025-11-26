@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 # Lazy import for optional arbiter dependency
 try:
-    from arbiter import evaluate
+    from arbiter_ai import evaluate
 except ImportError:
     evaluate = None  # type: ignore[assignment]
 

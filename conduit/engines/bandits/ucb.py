@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from conduit.core.defaults import SUCCESS_THRESHOLD, UCB1_C_DEFAULT
+from conduit.core.config import load_algorithm_config
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
@@ -46,17 +46,17 @@ class UCB1Bandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        c: float = UCB1_C_DEFAULT,
+        c: float | None = None,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
-        success_threshold: float = SUCCESS_THRESHOLD,
+        success_threshold: float | None = None,
     ) -> None:
         """Initialize UCB1 algorithm.
 
         Args:
             arms: List of available model arms
-            c: Exploration parameter (default: UCB1_C_DEFAULT)
+            c: Exploration parameter (default: loaded from config)
             random_seed: Random seed for tie-breaking
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
@@ -77,6 +77,14 @@ class UCB1Bandit(BanditAlgorithm):
             >>> bandit2 = UCB1Bandit(arms, c=1.5, window_size=1000)
         """
         super().__init__(name="ucb1", arms=arms)
+
+        # Load config if parameters not provided
+        if c is None or success_threshold is None:
+            config = load_algorithm_config("ucb1")
+            if c is None:
+                c = config["c"]
+            if success_threshold is None:
+                success_threshold = config.get("success_threshold", 0.85)
 
         self.c = c
         self.window_size = window_size
