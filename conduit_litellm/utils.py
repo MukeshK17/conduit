@@ -2,6 +2,8 @@
 
 from typing import Any, Optional
 
+from conduit.core.config import load_litellm_config
+
 
 def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
     """Validate LiteLLM model_list format.
@@ -78,6 +80,42 @@ def normalize_model_name(model_name: str) -> str:
     # Remove provider prefix if present
     if "/" in model_name:
         return model_name.split("/", 1)[1]
+    return model_name
+
+
+def map_litellm_to_conduit(litellm_model: str) -> str:
+    """Map LiteLLM model ID to Conduit model ID.
+
+    Handles common LiteLLM model names and translates them to Conduit's
+    standardized model IDs used in conduit.yaml priors. Loads mappings from
+    conduit.yaml litellm.model_mappings configuration.
+
+    Args:
+        litellm_model: Model ID from LiteLLM (e.g., "gpt-4o-mini", "claude-3-haiku-20240307")
+
+    Returns:
+        Conduit model ID (e.g., "o4-mini", "claude-haiku-4.5")
+
+    Example:
+        >>> map_litellm_to_conduit("gpt-4o-mini-2024-07-18")
+        'o4-mini'
+        >>> map_litellm_to_conduit("claude-3-5-sonnet-20241022")
+        'claude-sonnet-4.5'
+        >>> map_litellm_to_conduit("unknown-model")
+        'unknown-model'
+    """
+    # Remove provider prefix if present
+    model_name = normalize_model_name(litellm_model)
+
+    # Load mapping from config
+    config = load_litellm_config()
+    mappings = config.get("model_mappings", {})
+
+    # Check direct mapping
+    if model_name in mappings:
+        return mappings[model_name]
+
+    # No mapping found - return as-is
     return model_name
 
 
