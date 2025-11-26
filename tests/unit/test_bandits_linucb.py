@@ -442,8 +442,8 @@ class TestLinUCBBandit:
             assert np.allclose(bandit_sm.A_inv[model_id], direct_inv, atol=1e-10)
 
     @pytest.mark.asyncio
-    async def test_sliding_window_recalculates_a_inv(self, test_arms, test_features):
-        """Test sliding window mode recalculates A_inv instead of using Sherman-Morrison."""
+    async def test_sliding_window_incremental_updates(self, test_arms, test_features):
+        """Test sliding window mode uses incremental Woodbury updates for O(d²) complexity."""
         bandit = LinUCBBandit(test_arms, window_size=5)  # Small window
 
         arm = test_arms[0]
