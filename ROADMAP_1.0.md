@@ -2,26 +2,26 @@
 
 **Goal**: Ship production-ready Conduit 1.0 to PyPI and launch on HN/Reddit
 
-**Status**: 5 tasks remaining before 1.0 launch
+**Status**: 4 tasks remaining before 1.0 launch
 
 ---
 
 ## Work Order
 
-### 1. #102 - Restructure README for HN launch ⏳
-**Priority**: CRITICAL | **Difficulty**: Beginner | **Estimate**: 2-3 hours
+### 1. #102 - Restructure README for HN launch ✅ COMPLETE
+**Priority**: CRITICAL | **Difficulty**: Beginner | **Actual Time**: 2 hours
 
 **Why**: First impressions matter for user adoption. Better README = more beta testers.
 
 **Deliverables**:
-- [ ] Lead with value: "Cut LLM costs 30-50% with 5 lines of code"
-- [ ] Add "Why Conduit?" section with quantified benefits
-- [ ] Create "Starter vs Full" paths (quick start vs production)
-- [ ] Reduce jargon, add analogies
-- [ ] Add "When NOT to use" section
-- [ ] Add comparison table: Conduit vs LiteLLM vs LangChain vs RouteLLM
+- [x] Lead with value: "Cut LLM costs 30-50% with 5 lines of code"
+- [x] Add "The Problem" section showing pain points
+- [x] Add analogies (chess engine, recommendation system, GPS/roads)
+- [x] Reduce jargon, keep "under the hood" notes for experts
+- [x] Strengthen "When NOT to use" with honest criteria
+- [x] Fix comparison table - clarify integrations vs competitors
 
-**Success Criteria**: External reviewer can evaluate in <5 minutes without API keys
+**Completed**: PR #148 merged, issue #102 closed
 
 ---
 
@@ -96,7 +96,7 @@
 
 ## Timeline Estimate
 
-**Total**: ~16-21 hours of work
+**Total**: ~14-19 hours remaining (2 hours completed)
 
 **Aggressive**: 1 week (3-4 hours/day)
 **Comfortable**: 2 weeks (2 hours/day)
@@ -117,11 +117,11 @@
 - [ ] Release automation working
 
 **Documentation**:
-- [ ] README restructured for HN launch
+- [x] README restructured for HN launch
 - [ ] OPERATIONS.md for production deployments
 - [ ] RELEASING.md for maintainers
 - [ ] Performance benchmarks documented
-- [ ] Comparison to alternatives clear
+- [x] Comparison to alternatives clear
 
 **Community**:
 - [ ] HN launch post drafted
@@ -144,4 +144,4 @@ These can wait until after 1.0 launch:
 ---
 
 **Last Updated**: 2025-11-27
-**Next Task**: #102 - README restructure
+**Next Task**: #113 - Load testing suite
