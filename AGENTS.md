@@ -323,8 +323,9 @@ uv sync --all-extras          # Install all dependencies
 source .venv/bin/activate     # Activate virtual environment
 
 # Testing (MUST pass before commit)
-uv run pytest                 # Run all tests
-uv run pytest --cov=conduit   # Run with coverage (must be >80%)
+uv run pytest -m "not slow and not downloads_models and not requires_api_key"  # Fast dev tests (~30-60s)
+uv run pytest                 # Full test suite (~2-3min, includes slow tests)
+uv run pytest --cov=conduit   # Run with coverage (must be >80%, ~5min)
 uv run pytest tests/unit/test_bandits*.py -v  # Test bandit algorithms
 
 # Code Quality (MUST pass before commit)
@@ -336,6 +337,27 @@ uv run black conduit/         # Code formatting
 uv run python examples/01_quickstart/hello_world.py
 uv run python examples/02_routing/basic_routing.py
 ```
+
+### CI/CD Testing Strategy
+
+**GitHub Actions runs different tests based on context:**
+
+```yaml
+# Pull Requests: Fast feedback (~1-2min)
+- Fast tests only (no coverage overhead)
+- Skips slow concurrency tests
+- Command: pytest -m "not slow and not downloads_models and not requires_api_key"
+
+# Main branch & Release tags: Full quality assurance (~5min)
+- Complete test suite with coverage
+- Includes slow concurrency tests
+- Command: pytest --cov=conduit --cov-fail-under=80
+```
+
+**Why this matters:**
+- PRs get fast feedback for iterative development
+- Releases get comprehensive coverage validation
+- Balances speed and quality appropriately
 
 ---
 
@@ -638,16 +660,19 @@ async def test_select_arm_returns_valid_arm(test_arms, test_features):
 
 ### Running Tests
 ```bash
-# All tests
+# Fast (dev workflow): ~30-60s - skips slow concurrency tests
+uv run pytest -m "not slow and not downloads_models and not requires_api_key"
+
+# Full test suite: ~2-3min - runs everything including slow tests
 uv run pytest
+
+# With coverage (CI): ~5min
+uv run pytest --cov=conduit --cov-report=term-missing --cov-fail-under=80
 
 # Specific test file
 uv run pytest tests/unit/test_bandits_linucb.py -v
 
-# With coverage
-uv run pytest --cov=conduit --cov-report=term-missing
-
-# Fast: Skip integration tests
+# Unit tests only (fast)
 uv run pytest tests/unit/
 ```
 
