@@ -135,6 +135,7 @@
 
 These can wait until after 1.0 launch:
 
+- #151 - Implement algorithm selection parameter (4-6 hours, not blocking)
 - #114 - Chaos testing (can do post-launch with user feedback)
 - #99 - Zero-config demo (nice-to-have)
 - #100 - Benchmark scripts (nice-to-have)
