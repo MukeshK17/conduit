@@ -1,7 +1,7 @@
 ---
 name: conduit_agent
 description: ML-powered LLM routing system developer implementing contextual bandits, managing tests, and maintaining production-grade Python code
-last_updated: 2025-01-22
+last_updated: 2025-11-27
 ---
 
 # Conduit Agent Guide
@@ -13,8 +13,8 @@ last_updated: 2025-01-22
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
-**Test Health**: 100% (579/579 tests passing), 81% coverage
-**Latest**: Automatic state persistence, database timeout fix, hybrid routing tests, integration test suite complete
+**Test Health**: 643 passing, 26 skipped (100% pass rate), 83% coverage
+**Latest**: Router.update() real features fix (PR #168), automatic state persistence, database timeout fix, hybrid routing tests
 
 ---
 
@@ -630,7 +630,7 @@ Current implementations in `conduit/engines/bandits/`:
 ## Testing Requirements
 
 ### Coverage Requirements
-- **Overall**: >80% (currently 86%)
+- **Overall**: >80% (currently 83%)
 - **Core Engine**: >95% (models, router, executor)
 - **New Features**: >90% coverage
 
@@ -848,7 +848,16 @@ features = embedding + [
 
 ## Current Status (2025-11-27)
 
-### Latest: State Persistence & Production Resilience ✅
+### Latest: Router.update() Real Features Fix (PR #168) ✅
+
+**Critical Bug Fix** (PR #168, merged 2025-11-27):
+- **Problem**: Router.update() was using dummy features (all zeros) instead of real query features
+- **Impact**: Completely broke contextual learning in LinUCB algorithm
+- **Solution**: Added `features: QueryFeatures` parameter to Router.update()
+- **Result**: LinUCB now learns from real semantic query patterns
+- **Tests**: All 643 tests passing, 83% coverage maintained
+
+### Previous: State Persistence & Production Resilience ✅
 
 **Automatic State Persistence** (PR #147):
 - **Auto-load** state on first `route()` call (can't await in `__init__`)
@@ -879,10 +888,10 @@ features = embedding + [
 - **Pre-push hook**: Fast tests only for quick feedback
 
 ### Test Health (Updated 2025-11-27)
-- **Overall**: 100% passing (579/579 tests), 81% coverage
-- **Unit Tests**: 553 passing
+- **Overall**: 643 passing, 26 skipped (100% pass rate), 83% coverage
+- **Unit Tests**: ~620 passing
 - **Integration Tests**: 20 passing (API + database + hybrid routing + auto-persistence)
-- **Skipped**: 14 (optional deps: litellm, Redis, sentence-transformers)
+- **Skipped**: 26 (optional deps: litellm, Redis, sentence-transformers, API keys)
 - **All Bandit Algorithms**: 100% passing
 
 ### Previous: CI/CD & Test Infrastructure Complete (2025-11-26)
@@ -915,8 +924,8 @@ features = embedding + [
 - #110: Migration testing checklist
 - #111: Release automation process
 
-### Test Health
-- **Overall**: 100% passing (565/565 tests), 81% coverage
+### Test Health (Historical - 2025-11-26)
+- **Overall**: 100% passing (565 tests), 81% coverage
 - **Unit Tests**: 553 passing
 - **Integration Tests**: 12 passing (API + database)
 - **Skipped**: 14 (optional deps: litellm, Redis, sentence-transformers)
