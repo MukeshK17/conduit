@@ -17,6 +17,7 @@ from conduit.engines.hybrid_router import HybridRouter
 
 if TYPE_CHECKING:
     from conduit.core.state_store import StateStore
+    from conduit.engines.executor import ExecutionResult
 
 logger = logging.getLogger(__name__)
 
@@ -454,6 +455,64 @@ class Router:
         # Auto-save state after update (when weights change)
         if self.auto_persist:
             await self._save_state()
+
+    async def update_with_fallback_attribution(
+        self,
+        execution_result: "ExecutionResult",
+        quality_score: float,
+        features: QueryFeatures,
+    ) -> None:
+        """Update bandit weights with proper attribution for fallback scenarios.
+
+        When a fallback model is used, this method:
+        1. Penalizes all failed models (quality=0.0) to reduce future selection
+        2. Rewards the successful model (fallback or original) with actual quality
+
+        This ensures the bandit learns from model failures and prefers reliable models.
+
+        Args:
+            execution_result: Result from execute_with_fallback() with model tracking
+            quality_score: Quality assessment of the response (0.0-1.0)
+            features: Query features from the routing decision
+
+        Example:
+            >>> decision = await router.route(query)
+            >>> result = await executor.execute_with_fallback(
+            ...     decision=decision,
+            ...     prompt=query.text,
+            ...     result_type=MyOutput,
+            ... )
+            >>> await router.update_with_fallback_attribution(
+            ...     execution_result=result,
+            ...     quality_score=0.95,  # Quality of successful response
+            ...     features=decision.features,
+            ... )
+        """
+        # Penalize all failed models (they were unavailable/errored)
+        for failed_model in execution_result.failed_models:
+            await self.update(
+                model_id=failed_model,
+                cost=0.0,  # No cost incurred (failed before completion)
+                quality_score=0.0,  # Penalize unavailability
+                latency=0.0,  # No meaningful latency
+                features=features,
+            )
+            logger.info(f"Penalized failed model: {failed_model}")
+
+        # Reward the successful model with actual quality
+        await self.update(
+            model_id=execution_result.model_used,
+            cost=execution_result.response.cost,
+            quality_score=quality_score,
+            latency=execution_result.response.latency,
+            features=features,
+        )
+
+        if execution_result.was_fallback:
+            logger.info(
+                f"Fallback attribution complete: penalized {len(execution_result.failed_models)} "
+                f"failed model(s), rewarded {execution_result.model_used}"
+            )
 
     async def _load_initial_state(self) -> None:
         """Load saved state from database on initialization.

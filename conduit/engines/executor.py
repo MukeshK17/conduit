@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
@@ -11,10 +12,38 @@ from pydantic_ai import Agent
 
 from conduit.core.config import get_default_pricing, get_fallback_pricing
 from conduit.core.exceptions import ExecutionError
-from conduit.core.models import Response
+from conduit.core.models import Response, RoutingDecision
 from conduit.core.pricing import ModelPricing
 
 logger = logging.getLogger(__name__)
+
+
+class AllModelsFailedError(ExecutionError):
+    """Raised when all models (primary + fallbacks) fail."""
+
+    def __init__(self, message: str, errors: list[tuple[str, Exception]]) -> None:
+        """Initialize with message and list of (model_id, error) tuples."""
+        super().__init__(message)
+        self.errors = errors
+
+
+@dataclass
+class ExecutionResult:
+    """Result of LLM execution, potentially with fallback.
+
+    Attributes:
+        response: The successful Response from the model
+        model_used: The model that actually produced the response
+        was_fallback: True if a fallback model was used (primary failed)
+        original_model: The originally selected model (may differ from model_used)
+        failed_models: List of models that failed before success
+    """
+
+    response: Response
+    model_used: str
+    was_fallback: bool = False
+    original_model: str = ""
+    failed_models: list[str] = field(default_factory=list)
 
 
 class ModelExecutor:
@@ -106,6 +135,92 @@ class ModelExecutor:
         except Exception as e:
             logger.error(f"Execution failed for {model}: {e}")
             raise ExecutionError(f"Model {model} failed: {e}") from e
+
+    async def execute_with_fallback(
+        self,
+        decision: RoutingDecision,
+        prompt: str,
+        result_type: type[BaseModel],
+        timeout: float = 60.0,
+        max_fallbacks: int = 3,
+    ) -> ExecutionResult:
+        """Execute LLM call with automatic fallback on failure.
+
+        Tries the selected model first, then falls back to models in
+        the fallback_chain if the primary model fails.
+
+        Args:
+            decision: RoutingDecision with selected_model and fallback_chain
+            prompt: User query
+            result_type: Pydantic model for structured output
+            timeout: Maximum execution time per model in seconds
+            max_fallbacks: Maximum number of fallback attempts
+
+        Returns:
+            ExecutionResult with response and metadata about fallback usage
+
+        Raises:
+            AllModelsFailed: If all models (primary + fallbacks) fail
+
+        Example:
+            >>> decision = await router.route(query)
+            >>> result = await executor.execute_with_fallback(
+            ...     decision=decision,
+            ...     prompt=query.text,
+            ...     result_type=MyOutput,
+            ... )
+            >>> if result.was_fallback:
+            ...     print(f"Used fallback: {result.model_used}")
+        """
+        # Build list of models to try: selected + fallbacks
+        models_to_try = [decision.selected_model] + decision.fallback_chain[
+            :max_fallbacks
+        ]
+
+        failed_models: list[str] = []
+        errors: list[tuple[str, Exception]] = []
+
+        for model in models_to_try:
+            try:
+                response = await self.execute(
+                    model=model,
+                    prompt=prompt,
+                    result_type=result_type,
+                    query_id=decision.query_id,
+                    timeout=timeout,
+                )
+
+                was_fallback = model != decision.selected_model
+
+                if was_fallback:
+                    logger.info(
+                        f"Fallback succeeded: {model} (original: {decision.selected_model}, "
+                        f"failed: {failed_models})"
+                    )
+
+                return ExecutionResult(
+                    response=response,
+                    model_used=model,
+                    was_fallback=was_fallback,
+                    original_model=decision.selected_model,
+                    failed_models=failed_models,
+                )
+
+            except (ExecutionError, asyncio.TimeoutError) as e:
+                logger.warning(
+                    f"Model {model} failed: {e}, trying next fallback "
+                    f"({len(models_to_try) - len(failed_models) - 1} remaining)"
+                )
+                failed_models.append(model)
+                errors.append((model, e))
+                continue
+
+        # All models failed
+        error_summary = "; ".join(f"{m}: {e}" for m, e in errors)
+        raise AllModelsFailedError(
+            f"All {len(models_to_try)} models failed. Errors: {error_summary}",
+            errors=errors,
+        )
 
     def _get_agent(self, model: str, result_type: type[BaseModel]) -> Agent:
         """Get cached or create new PydanticAI agent.

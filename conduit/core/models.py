@@ -119,6 +119,10 @@ class RoutingDecision(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()), description="Decision ID")
     query_id: str = Field(..., description="Associated query ID")
     selected_model: str = Field(..., description="Selected LLM model")
+    fallback_chain: list[str] = Field(
+        default_factory=list,
+        description="Ordered list of fallback models if selected_model fails",
+    )
     confidence: float = Field(
         ...,
         description="Thompson sampling confidence (0.0-1.0): >0.8=high, 0.5-0.8=medium, <0.5=low, 0.0=fallback",

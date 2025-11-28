@@ -289,6 +289,29 @@ class HybridRouter:
             f"feature_dim={feature_dim}"
         )
 
+    def _get_fallback_chain(
+        self, selected_model: str, max_fallbacks: int = 3
+    ) -> list[str]:
+        """Generate fallback chain excluding selected model.
+
+        Returns models sorted by expected_quality descending,
+        excluding the selected model.
+
+        Args:
+            selected_model: The model already selected (to exclude)
+            max_fallbacks: Maximum number of fallbacks to return
+
+        Returns:
+            List of model IDs for fallback, ordered by expected quality
+        """
+        # Get all arms except selected, sorted by expected_quality
+        fallbacks = sorted(
+            [arm for arm in self.arms if arm.model_id != selected_model],
+            key=lambda a: a.expected_quality,
+            reverse=True,
+        )
+        return [arm.model_id for arm in fallbacks[:max_fallbacks]]
+
     def _infer_provider(self, model_id: str) -> str:
         """Infer provider from model ID.
 
@@ -356,6 +379,7 @@ class HybridRouter:
             return RoutingDecision(
                 query_id=query.id,
                 selected_model=arm.model_id,
+                fallback_chain=self._get_fallback_chain(arm.model_id),
                 confidence=confidence,
                 features=features,  # Use real features in response
                 reasoning=f"Hybrid routing (phase: {self.phase1_algorithm}, query {self.query_count}/{self.switch_threshold})",
@@ -376,6 +400,7 @@ class HybridRouter:
             return RoutingDecision(
                 query_id=query.id,
                 selected_model=arm.model_id,
+                fallback_chain=self._get_fallback_chain(arm.model_id),
                 confidence=confidence,
                 features=features,
                 reasoning=f"Hybrid routing (phase: {self.phase2_algorithm}, query {self.query_count})",

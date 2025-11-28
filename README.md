@@ -248,6 +248,7 @@ examples/
 - **Architecture**: `docs/ARCHITECTURE.md` - System design and components
 - **Algorithms**: `docs/BANDIT_ALGORITHMS.md` - ML algorithm details
 - **Hybrid Routing**: `docs/HYBRID_ROUTING_ALGORITHMS.md` - 4 configurable algorithm combinations, benchmarks, and state conversion
+- **Fallback Chains**: `docs/FALLBACK.md` - Automatic model fallback for production resilience
 - **Embeddings**: `docs/EMBEDDING_PROVIDERS.md` - Embedding configuration
 - **Troubleshooting**: `docs/TROUBLESHOOTING.md` - Common issues and solutions
 - **LiteLLM**: `docs/LITELLM_INTEGRATION.md` - Extended provider support
