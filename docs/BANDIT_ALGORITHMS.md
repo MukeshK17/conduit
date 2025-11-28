@@ -2,8 +2,8 @@
 
 **Purpose**: Understand the multi-armed bandit algorithms available in Conduit for intelligent LLM routing.
 
-**Last Updated**: 2025-11-27
-**Status**: Complete - 8 algorithms implemented and tested (2 contextual, 6 non-contextual)
+**Last Updated**: 2025-11-28
+**Status**: Complete - 12 algorithms available via `Router(algorithm="...")`
 **Default Algorithm**: Thompson Sampling (changed in PR #169)
 
 ---
@@ -258,16 +258,32 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 
 ## Algorithm Comparison
 
-| Algorithm | Type | Uses Context? | Best For | Complexity | Test Coverage |
-|-----------|------|---------------|----------|------------|---------------|
-| **Thompson Sampling** ⭐ | Non-contextual | ❌ No | **Default** - Best cold-start | Low | 8/9 (89%) |
-| **LinUCB** | Contextual | ✅ Yes | Query-specific routing | High | 12/12 (100%) |
-| **Contextual Thompson** | Contextual | ✅ Yes | Bayesian + context | High | 17/17 (100%) |
-| **UCB1** | Non-contextual | ❌ No | Simple baseline | Low | 11/11 (100%) |
-| **Epsilon-Greedy** | Non-contextual | ❌ No | Experimentation | Low | 14/14 (100%) |
-| **Random** | Non-contextual | ❌ No | Baseline (no learning) | Minimal | N/A |
-| **Hybrid Thompson-LinUCB** | Hybrid | Transitions | Legacy default | Medium | 8/8 (100%) |
-| **Hybrid UCB1-LinUCB** | Hybrid | Transitions | Alternative hybrid | Medium | N/A |
+### Learning Algorithms (6)
+
+| Algorithm | Type | Uses Context? | Best For | Complexity |
+|-----------|------|---------------|----------|------------|
+| **Thompson Sampling** ⭐ | Non-contextual | ❌ No | **Default** - Best cold-start | Low |
+| **LinUCB** | Contextual | ✅ Yes | Query-specific routing | High |
+| **Contextual Thompson** | Contextual | ✅ Yes | Bayesian + context | High |
+| **UCB1** | Non-contextual | ❌ No | Simple exploration | Low |
+| **Epsilon-Greedy** | Non-contextual | ❌ No | Experimentation | Low |
+| **Dueling** | Contextual | ✅ Yes | Pairwise preferences | Medium |
+
+### Baseline Algorithms (4, for benchmarking)
+
+| Algorithm | Behavior | Use Case |
+|-----------|----------|----------|
+| **Random** | Uniform random selection | Lower bound baseline |
+| **Always Best** | Always pick highest expected_quality | Quality-only benchmark |
+| **Always Cheapest** | Always pick lowest cost model | Cost-only benchmark |
+| **Oracle** | Remembers actual results, picks best | Upper bound (theoretical optimum) |
+
+### Hybrid Algorithms (2, legacy)
+
+| Algorithm | Phase 1 | Phase 2 | Use Case |
+|-----------|---------|---------|----------|
+| **Hybrid Thompson-LinUCB** | Thompson Sampling | LinUCB | Old default (before PR #169) |
+| **Hybrid UCB1-LinUCB** | UCB1 | LinUCB | Alternative hybrid |
 
 ### Quick Recommendation
 
@@ -275,15 +291,30 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 
 **For contextual routing (LinUCB)**: Use when you want different models for different query types. A simple query like "What is 2+2?" routes to gpt-4o-mini, while complex research routes to GPT-4o or Claude Opus.
 
+**For benchmarking**: Use baseline algorithms to compare learning algorithm performance.
+
+### All Algorithm Strings
+
 ```python
-# Default: Thompson Sampling (recommended)
-router = Router()
+from conduit import Router
 
-# Contextual: LinUCB (uses query features)
-router = Router(algorithm="linucb")
+# Learning algorithms (6)
+router = Router()                                      # thompson_sampling (default)
+router = Router(algorithm="linucb")                    # Contextual linear UCB
+router = Router(algorithm="contextual_thompson_sampling")  # Contextual Bayesian
+router = Router(algorithm="ucb1")                      # Upper confidence bound
+router = Router(algorithm="epsilon_greedy")            # Epsilon-greedy
+router = Router(algorithm="dueling")                   # Pairwise preferences
 
-# Contextual: Bayesian with features
-router = Router(algorithm="contextual_thompson_sampling")
+# Baseline algorithms (4, for benchmarking)
+router = Router(algorithm="random")                    # Lower bound (no learning)
+router = Router(algorithm="always_best")               # Always highest quality
+router = Router(algorithm="always_cheapest")           # Always lowest cost
+router = Router(algorithm="oracle")                    # Upper bound (knows actual results)
+
+# Hybrid algorithms (2, legacy)
+router = Router(algorithm="hybrid_thompson_linucb")    # Thompson → LinUCB
+router = Router(algorithm="hybrid_ucb1_linucb")        # UCB1 → LinUCB
 ```
 
 **Thompson Sampling vs LinUCB**:

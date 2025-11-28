@@ -62,16 +62,25 @@ router = Router(algorithm="thompson_sampling")  # Default: thompson_sampling
 - **If you used `use_hybrid_routing=True`**: Use `algorithm="hybrid_thompson_linucb"` (maintains old behavior)
 - **If you used `use_hybrid_routing=False`**: Use `algorithm="linucb"` (contextual algorithm)
 
-**Available Algorithms**:
+**Available Algorithms** (12 total):
+
+*Learning algorithms (6):*
 - `thompson_sampling` (default): Non-contextual Bayesian bandit (best cold-start quality, research-backed arXiv 2510.02850)
 - `linucb`: Contextual linear bandit (uses query features)
 - `contextual_thompson_sampling`: Contextual Bayesian bandit
 - `ucb1`: Non-contextual upper confidence bound
-- `epsilon_greedy`: Epsilon-greedy with decaying exploration (non-contextual baseline)
-- `random`: Pure random selection baseline (non-contextual, no learning)
+- `epsilon_greedy`: Epsilon-greedy with decaying exploration
 - `dueling`: Contextual dueling bandit (pairwise comparisons with features)
-- `hybrid_thompson_linucb`: Thompson → LinUCB transition (old default, legacy)
-- `hybrid_ucb1_linucb`: UCB1 → LinUCB transition (legacy)
+
+*Baseline algorithms (4, for benchmarking):*
+- `random`: Pure random selection (lower bound, no learning)
+- `always_best`: Always pick highest expected_quality model
+- `always_cheapest`: Always pick lowest cost model
+- `oracle`: Remembers actual results, picks best (upper bound for benchmarking)
+
+*Hybrid algorithms (2, legacy):*
+- `hybrid_thompson_linucb`: Thompson → LinUCB transition (old default)
+- `hybrid_ucb1_linucb`: UCB1 → LinUCB transition
 
 **Rationale**: Thompson Sampling provides superior cold-start quality through Bayesian exploration (research paper arXiv 2510.02850). Simpler default, no complex hybrid logic needed for most users.
 

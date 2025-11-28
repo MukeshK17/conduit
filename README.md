@@ -61,7 +61,7 @@ Query → Analyze → Smart Selection → LLM Provider → Response
 3. **Execute**: Route to selected model via PydanticAI or LiteLLM
 4. **Learn**: Track what worked and improve future routing decisions
 
-**Under the hood**: Uses Thompson Sampling bandit algorithm for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration ([arXiv 2510.02850](https://arxiv.org/abs/2510.02850)). Contextual algorithms (LinUCB, Contextual Thompson) available via `algorithm` parameter.
+**Under the hood**: Uses Thompson Sampling bandit algorithm for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration ([arXiv 2510.02850](https://arxiv.org/abs/2510.02850)). 12 algorithms available via `algorithm` parameter (see `docs/BANDIT_ALGORITHMS.md`).
 
 ## How Learning Works
 
@@ -306,7 +306,7 @@ Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that pic
 - ✅ Lightweight API-based embeddings (HuggingFace default, no heavy dependencies)
 - ✅ Arbiter LLM-as-Judge (automatic quality evaluation)
 - ✅ LiteLLM feedback loop (zero-config learning)
-- ✅ Configurable algorithms (Thompson, LinUCB, UCB1, Hybrid)
+- ✅ 12 configurable algorithms (Thompson, LinUCB, UCB1, baselines, hybrid)
 - ✅ Multi-objective rewards (quality + cost + latency)
 - ✅ User preferences (per-query optimization control)
 - ✅ Dynamic pricing (71+ models auto-updated)
