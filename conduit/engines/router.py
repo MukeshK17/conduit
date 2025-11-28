@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -114,7 +115,9 @@ class Router:
             state_store: StateStore for automatic persistence (PostgresStateStore recommended).
                 If None, persistence is disabled.
             router_id: Unique identifier for this router (used as persistence key).
-                Default: timestamp-based ID (e.g., "router-20250226-143052-123456").
+                Priority: explicit param > CONDUIT_ROUTER_ID env var > timestamp-based.
+                For Kubernetes multi-replica deployments, set CONDUIT_ROUTER_ID env var
+                so all replicas share state (e.g., "production-cluster").
             auto_persist: If True, automatically save state after updates and periodically.
                 Only applies if state_store is provided. Default: True.
             checkpoint_interval: Save state every N queries as backup.
@@ -282,7 +285,10 @@ class Router:
 
         # State persistence configuration
         self.state_store = state_store
-        # Generate timestamp-based router_id if not provided
+        # Router ID priority: explicit param > CONDUIT_ROUTER_ID env var > timestamp-based
+        # Using env var allows Kubernetes replicas to share state via shared router_id
+        if router_id is None:
+            router_id = os.getenv("CONDUIT_ROUTER_ID")
         if router_id is None:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
             router_id = f"router-{timestamp}"

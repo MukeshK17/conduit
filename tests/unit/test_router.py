@@ -549,3 +549,51 @@ class TestRouterIntegration:
         assert result.selected_model in router.hybrid_router.models
         assert 0.0 <= result.confidence <= 1.0
         assert isinstance(result.features, QueryFeatures)
+
+
+class TestRouterIdConfiguration:
+    """Tests for router_id configuration including CONDUIT_ROUTER_ID env var."""
+
+    def test_explicit_router_id_takes_priority(self):
+        """Test that explicit router_id parameter overrides env var."""
+        import os
+        # Set env var
+        os.environ["CONDUIT_ROUTER_ID"] = "env-router-id"
+        try:
+            router = Router(router_id="explicit-router-id")
+            assert router.router_id == "explicit-router-id"
+        finally:
+            del os.environ["CONDUIT_ROUTER_ID"]
+
+    def test_env_var_used_when_no_explicit_id(self):
+        """Test that CONDUIT_ROUTER_ID env var is used when router_id not provided."""
+        import os
+        os.environ["CONDUIT_ROUTER_ID"] = "kubernetes-cluster"
+        try:
+            router = Router()
+            assert router.router_id == "kubernetes-cluster"
+        finally:
+            del os.environ["CONDUIT_ROUTER_ID"]
+
+    def test_timestamp_fallback_when_no_id_provided(self):
+        """Test that timestamp-based ID is generated when no ID provided."""
+        import os
+        # Ensure env var is not set
+        os.environ.pop("CONDUIT_ROUTER_ID", None)
+
+        router = Router()
+        assert router.router_id.startswith("router-")
+        # Should be timestamp format: router-YYYYMMDD-HHMMSS-microseconds
+        assert len(router.router_id) > len("router-")
+
+    def test_env_var_enables_multi_replica_state_sharing(self):
+        """Test that multiple routers with same env var share the same router_id."""
+        import os
+        os.environ["CONDUIT_ROUTER_ID"] = "production-cluster"
+        try:
+            router1 = Router()
+            router2 = Router()
+            # Both should have the same router_id for state sharing
+            assert router1.router_id == router2.router_id == "production-cluster"
+        finally:
+            del os.environ["CONDUIT_ROUTER_ID"]

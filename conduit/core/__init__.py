@@ -30,7 +30,10 @@ from conduit.core.models import (
     RoutingResult,
     UserPreferences,
 )
-from conduit.core.postgres_state_store import PostgresStateStore
+from conduit.core.postgres_state_store import (
+    PostgresStateStore,
+    StateVersionConflictError,
+)
 from conduit.core.pricing import ModelPricing
 from conduit.core.reward_calculation import (
     apply_user_preferences,
@@ -94,6 +97,7 @@ __all__ = [
     # State Persistence
     "StateStore",
     "StateStoreError",
+    "StateVersionConflictError",
     "PostgresStateStore",
     "BanditState",
     "HybridRouterState",
