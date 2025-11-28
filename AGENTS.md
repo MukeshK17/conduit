@@ -13,8 +13,8 @@ last_updated: 2025-11-27
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
-**Test Health**: 100% passing (701 tests), 81% coverage
-**Latest**: Fallback chains for model failures (#163), 12 algorithms exposed via Router, Thompson Sampling default
+**Test Health**: 100% passing (719 tests), 81% coverage
+**Latest**: Multi-replica state management (#156, #157), CONDUIT_ROUTER_ID env var, optimistic locking with retry
 
 ---
 
@@ -897,7 +897,37 @@ features = embedding + [
 
 ## Current Status (2025-11-28)
 
-### Latest: Fallback Chains for Model Failures (#163) ✅
+### Latest: Multi-Replica State Management (#156, #157) ✅
+
+**Kubernetes Multi-Replica Support** (commit 342a044, 2025-11-28):
+- **CONDUIT_ROUTER_ID Environment Variable** (#156):
+  - Router ID priority: explicit param > CONDUIT_ROUTER_ID env var > timestamp
+  - Allows multiple Kubernetes replicas to share bandit state
+  - Set once in deployment, all replicas coordinate automatically
+  - 4 new tests for router_id configuration
+
+- **Optimistic Locking in PostgresStateStore** (#157):
+  - Version checking with WHERE clause on UPDATE
+  - Automatic retry with exponential backoff (up to 3 retries)
+  - Jitter to prevent thundering herd
+  - `StateVersionConflictError` exception after max retries
+  - `conflict_count` tracking for monitoring
+  - 14 new tests for optimistic locking behavior
+
+**Usage**:
+```yaml
+# Kubernetes deployment
+env:
+  - name: CONDUIT_ROUTER_ID
+    value: "production-router-v1"  # All replicas share this ID
+```
+
+```python
+# Or in code
+router = Router(router_id="production-router-v1")
+```
+
+### Previous: Fallback Chains for Model Failures (#163) ✅
 
 **Production Resilience Feature** (commit e75bf7c, 2025-11-28):
 - **Problem**: When selected model fails, user got an error instead of automatic retry
@@ -957,8 +987,8 @@ features = embedding + [
 - **Pre-push hook**: Fast tests only for quick feedback
 
 ### Test Health (Updated 2025-11-28)
-- **Overall**: 701 passing, 26 skipped (100% pass rate), 81% coverage
-- **Unit Tests**: ~660 passing (including 17 new fallback tests)
+- **Overall**: 719 passing, 26 skipped (100% pass rate), 81% coverage
+- **Unit Tests**: ~680 passing (including 18 new multi-replica tests)
 - **Integration Tests**: 20 passing (API + database + hybrid routing + auto-persistence)
 - **Skipped**: 26 (optional deps: litellm, Redis, sentence-transformers, API keys)
 - **All Bandit Algorithms**: 100% passing
