@@ -2,8 +2,9 @@
 
 **Purpose**: Understand the multi-armed bandit algorithms available in Conduit for intelligent LLM routing.
 
-**Last Updated**: 2025-11-21
-**Status**: Complete - 6 algorithms implemented and tested (2 contextual, 4 non-contextual)
+**Last Updated**: 2025-11-27
+**Status**: Complete - 8 algorithms implemented and tested (2 contextual, 6 non-contextual)
+**Default Algorithm**: Thompson Sampling (changed in PR #169)
 
 ---
 
@@ -259,26 +260,39 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 
 | Algorithm | Type | Uses Context? | Best For | Complexity | Test Coverage |
 |-----------|------|---------------|----------|------------|---------------|
-| **LinUCB** | Contextual | ✅ Yes | Production (recommended) | High | 12/12 (100%) |
+| **Thompson Sampling** ⭐ | Non-contextual | ❌ No | **Default** - Best cold-start | Low | 8/9 (89%) |
+| **LinUCB** | Contextual | ✅ Yes | Query-specific routing | High | 12/12 (100%) |
 | **Contextual Thompson** | Contextual | ✅ Yes | Bayesian + context | High | 17/17 (100%) |
-| **Thompson Sampling** | Non-contextual | ❌ No | Bayesian approach | Medium | 8/9 (89%) |
 | **UCB1** | Non-contextual | ❌ No | Simple baseline | Low | 11/11 (100%) |
 | **Epsilon-Greedy** | Non-contextual | ❌ No | Experimentation | Low | 14/14 (100%) |
-| **Baselines** | Reference | N/A | Benchmarking | Minimal | 17/20 (85%) |
+| **Random** | Non-contextual | ❌ No | Baseline (no learning) | Minimal | N/A |
+| **Hybrid Thompson-LinUCB** | Hybrid | Transitions | Legacy default | Medium | 8/8 (100%) |
+| **Hybrid UCB1-LinUCB** | Hybrid | Transitions | Alternative hybrid | Medium | N/A |
 
 ### Quick Recommendation
 
-**For production LLM routing**: Use **LinUCB** or **Contextual Thompson Sampling** (contextual bandits)
+**Default (Thompson Sampling)**: Best for most users. Superior cold-start quality via Bayesian exploration. Research-backed ([arXiv 2510.02850](https://arxiv.org/abs/2510.02850)).
 
-**Why**: Contextual algorithms use query features (embedding, complexity) to make smarter routing decisions. A simple query like "What is 2+2?" should route to gpt-4o-mini, while a complex research query should route to GPT-4o or Claude Opus.
+**For contextual routing (LinUCB)**: Use when you want different models for different query types. A simple query like "What is 2+2?" routes to gpt-4o-mini, while complex research routes to GPT-4o or Claude Opus.
 
-**LinUCB vs Contextual Thompson**:
-- **LinUCB**: Deterministic UCB, faster convergence, proven for LLM routing
-- **Contextual Thompson**: Bayesian sampling, natural exploration, better for uncertainty quantification
+```python
+# Default: Thompson Sampling (recommended)
+router = Router()
+
+# Contextual: LinUCB (uses query features)
+router = Router(algorithm="linucb")
+
+# Contextual: Bayesian with features
+router = Router(algorithm="contextual_thompson_sampling")
+```
+
+**Thompson Sampling vs LinUCB**:
+- **Thompson Sampling**: Simple, fast, excellent cold-start, no feature extraction needed
+- **LinUCB**: Context-aware, learns query-specific preferences, more complex
 
 ---
 
-## 1. LinUCB (Recommended)
+## 1. LinUCB (Contextual)
 
 **File**: `conduit/engines/bandits/linucb.py`
 **Type**: Contextual bandit with ridge regression
@@ -604,11 +618,12 @@ weighted_sum = λ · Σ(r_i · x_i)  # Weighted feature sum
 
 ---
 
-## 3. Thompson Sampling (Non-Contextual)
+## 3. Thompson Sampling (Default)
 
 **File**: `conduit/engines/bandits/thompson_sampling.py`
 **Type**: Bayesian bandit with Beta distributions
 **Status**: 8/9 tests passing (89% coverage)
+**Default**: ⭐ This is the default algorithm as of PR #169
 
 ### How It Works
 
@@ -845,14 +860,18 @@ arm = await bandit.select_arm(features)  # Optimal choice
 ```
 Start: Which bandit algorithm should I use?
 │
-├─ Do you have query features (embeddings, metadata)?
-│  ├─ YES → Use LinUCB (contextual, best performance)
-│  │
-│  └─ NO → Do you want Bayesian uncertainty?
-│     ├─ YES → Use Thompson Sampling
-│     └─ NO → Do you want theoretical guarantees?
-│        ├─ YES → Use UCB1
-│        └─ NO → Use Epsilon-Greedy (simplest)
+├─ Just getting started or unsure?
+│  └─ Use Thompson Sampling (DEFAULT) - best cold-start, simple, proven
+│
+├─ Need query-specific routing? (different models for different query types)
+│  ├─ YES → Use LinUCB (contextual, uses query features)
+│  └─ NO → Stick with Thompson Sampling
+│
+├─ Want Bayesian + context?
+│  └─ Use Contextual Thompson Sampling
+│
+├─ Need simplest possible baseline?
+│  └─ Use Epsilon-Greedy
 │
 └─ Benchmarking only?
    └─ Use Baselines (Random, AlwaysBest, AlwaysCheapest, Oracle)
@@ -1111,6 +1130,6 @@ See `docs/COLD_START.md` for detailed strategies.
 
 ---
 
-**Last Updated**: 2025-11-21
+**Last Updated**: 2025-11-27
 **Maintained By**: Conduit core team
 **Feedback**: Report issues or suggestions via GitHub

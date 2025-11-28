@@ -111,12 +111,11 @@ Traditional routers would need manual rules like "if query contains 'math', use 
 
 ### The Math (for the curious)
 
-Conduit uses **LinUCB** (Linear Upper Confidence Bound), a contextual bandit algorithm that:
+Conduit defaults to **Thompson Sampling**, a Bayesian bandit algorithm that:
 
-1. **Extracts features** from your query (embedding + complexity)
-2. **Computes reward prediction** for each model based on past performance
-3. **Balances exploration vs exploitation**: Try new options vs use what works
-4. **Updates weights** after every query using ridge regression
+1. **Models uncertainty** for each LLM using Beta distributions
+2. **Samples** from each model's distribution to select
+3. **Updates beliefs** after every query based on success/failure
 
 **Reward formula**: `0.7 × quality + 0.2 × cost_efficiency + 0.1 × speed`
 
@@ -125,13 +124,25 @@ This means:
 - Fast models get bonus points (latency matters)
 - Quality always dominates (70% weight)
 
-**Learning update** (Sherman-Morrison formula, O(d²) efficient):
+**How Thompson Sampling works**:
 ```python
-# After each query with feedback:
-A += outer_product(features)      # Update knowledge matrix
-b += reward * features            # Update reward vector
-theta = A_inv @ b                 # New predictions (instant)
+# Each model has a Beta(α, β) distribution
+# α = successes + 1, β = failures + 1
+
+# Selection: sample from each, pick highest
+samples = {model: Beta(α[model], β[model]).sample() for model in models}
+selected = max(samples, key=samples.get)
+
+# Update: reward >= 0.85 is success
+if reward >= 0.85:
+    α[selected] += 1  # More confident model is good
+else:
+    β[selected] += 1  # More confident model is bad
 ```
+
+**Why Thompson Sampling?** Best cold-start performance via Bayesian exploration ([arXiv 2510.02850](https://arxiv.org/abs/2510.02850)).
+
+For contextual routing (different models for different query types), use `algorithm="linucb"`. See `docs/BANDIT_ALGORITHMS.md` for all options.
 
 ### Verified Behavior
 

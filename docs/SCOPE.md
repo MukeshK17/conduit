@@ -10,7 +10,7 @@ This document defines what Conduit does and doesn't do. Clear scope boundaries h
 ## What Conduit Does
 
 ### Core Routing Engine
-- **ML-powered LLM routing** using contextual bandit algorithms (LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy)
+- **ML-powered LLM routing** using bandit algorithms (Thompson Sampling default, with LinUCB, UCB1, Epsilon-Greedy options)
 - **Multi-objective optimization** balancing quality, cost, and latency
 - **Contextual decision-making** using query embeddings and metadata (386-dimensional feature vectors)
 - **Adaptive learning** from explicit feedback (user ratings) and implicit signals (errors, latency, retries)
@@ -28,7 +28,7 @@ This document defines what Conduit does and doesn't do. Clear scope boundaries h
 - **FastAPI REST API** for programmatic routing requests
 
 ### Advanced Features
-- **Hybrid routing** combining cheap models for classification with expensive models for execution (30% faster convergence)
+- **Hybrid routing** (optional) combining non-contextual exploration with contextual LinUCB for query-specific routing
 - **Non-stationarity handling** with sliding windows for concept drift
 - **PCA dimensionality reduction** for efficient exploration (75% sample reduction)
 - **Arbiter LLM-as-judge evaluation** for automatic quality assessment with configurable sampling

@@ -32,13 +32,13 @@ This section explains how Conduit's key components interact.
 │                                                  │                               │
 │                                                  ▼                               │
 │   ┌─────────────────────────────────────────────────────────────────────────┐   │
-│   │                         HYBRID ROUTER                                    │   │
+│   │                      BANDIT ALGORITHM (Router)                          │   │
 │   │                                                                          │   │
-│   │   Phase 1 (0-2000 queries)        Phase 2 (2000+ queries)               │   │
+│   │   Default: Thompson Sampling        Optional: LinUCB (contextual)       │   │
 │   │   ┌─────────────────┐             ┌─────────────────┐                   │   │
-│   │   │      UCB1       │──transition─▶│     LinUCB      │                   │   │
-│   │   │  (no features)  │             │  (uses features) │                   │   │
-│   │   │  Fast explore   │             │  Smart routing   │                   │   │
+│   │   │    Thompson     │             │     LinUCB      │                   │   │
+│   │   │   Sampling      │     OR      │  (uses features) │                   │   │
+│   │   │  (Bayesian)     │             │  Smart routing   │                   │   │
 │   │   └─────────────────┘             └─────────────────┘                   │   │
 │   │                                                                          │   │
 │   └──────────────────────────────────────────────┬──────────────────────────┘   │
@@ -65,8 +65,8 @@ This section explains how Conduit's key components interact.
 │                                         ┌─────────────┐                         │
 │                                         │   REWARD    │                         │
 │                                         │ CALCULATION │                         │
-│                                         │ 0.5q+0.3c+  │                         │
-│                                         │   0.2l      │                         │
+│                                         │ 0.7q+0.2c+  │                         │
+│                                         │   0.1l      │                         │
 │                                         └─────────────┘                         │
 │                                                  │                               │
 │                                                  ▼                               │
@@ -85,38 +85,39 @@ This section explains how Conduit's key components interact.
 | **Embedding Provider** | Convert text to vectors | Query text | 384-1536 dim vector |
 | **PCA** | Compress embeddings | Raw embedding | 64 dim embedding |
 | **Query Analyzer** | Extract routing features | Query text | QueryFeatures (embedding + metadata) |
-| **UCB1 Bandit** | Cold start exploration | None (non-contextual) | Model selection |
+| **Thompson Sampling** | Default routing (Bayesian) | None (non-contextual) | Model selection |
 | **LinUCB Bandit** | Contextual routing | QueryFeatures | Model selection |
-| **Hybrid Router** | Phase management | Query | RoutingDecision |
+| **Router** | Algorithm management | Query | RoutingDecision |
 | **Arbiter** | Quality evaluation | Query + Response | Quality score (0-1) |
 | **Feedback Loop** | Learning signal | Feedback sources | Reward → Bandit update |
 
 ### When Each Component Is Used
 
 ```
-Query Count:    0        500      1000      1500      2000      5000
-                │         │         │         │         │         │
-Embedding:      ❌ ─────────────────────────────╳ ✅ ──────────────────▶
-                Not needed (UCB1)               Required (LinUCB)
+Algorithm Selection (Router initialization):
 
-PCA:            ❌ ─────────────────────────────╳ Optional ────────────▶
-                Not needed (UCB1)               Reduces 386→66 dims
+┌─────────────────────────────────────────────────────────────────────┐
+│  Thompson Sampling (DEFAULT)     │  LinUCB (contextual)            │
+├─────────────────────────────────────────────────────────────────────┤
+│  Embedding: ❌ Not needed         │  Embedding: ✅ Required         │
+│  PCA:       ❌ Not needed         │  PCA:       Optional (386→66)  │
+│  Best for:  Cold start, simple   │  Best for:  Query-specific      │
+│  Cost:      Lowest               │  Cost:      Higher (embeddings) │
+└─────────────────────────────────────────────────────────────────────┘
 
-UCB1:           ✅ ════════════════════════════╗
-                Active, exploring              ║ Transition
-                                               ╚═══════════════════════▶ ❌
+# Default (Thompson Sampling) - no feature extraction needed
+router = Router()  # Uses thompson_sampling
 
-LinUCB:         ❌                              ╔═══════════════════════▶ ✅
-                Waiting                        Active, contextual
+# Contextual (LinUCB) - uses query features
+router = Router(algorithm="linucb")
 
-Arbiter:        ✅ ─────────────────────────────────────────────────────▶
-                Always available (async, sampled at 10%)
+Arbiter:        ✅ Always available (async, sampled at 10%)
 ```
 
 ### Arbiter vs Bandit (Common Confusion)
 
-| Aspect | Bandit (UCB1/LinUCB) | Arbiter |
-|--------|---------------------|---------|
+| Aspect | Bandit (Thompson/LinUCB) | Arbiter |
+|--------|--------------------------|---------|
 | **Purpose** | SELECT which model to use | EVALUATE response quality |
 | **When** | Before LLM call | After LLM call |
 | **Blocking** | Yes (must select model) | No (async, background) |
@@ -347,43 +348,37 @@ alpha = 1.0:  UCB = 0.9 + 1.0 * 0.2 = 1.1  (explore more)
 alpha = 0.1:  UCB = 0.9 + 0.1 * 0.2 = 0.92 (exploit learned reward)
 ```
 
-### Hybrid Routing: Thompson Sampling → LinUCB Transition
+### Hybrid Routing (Optional/Legacy)
 
-**Why Hybrid?**
-- Thompson Sampling (phase 1): Fast cold start, no embedding needed
-- LinUCB (phase 2): Contextual learning, uses query features
+> **Note**: As of PR #169, the default algorithm is pure Thompson Sampling. Hybrid routing is available but no longer the default.
 
-**Transition at 2000 queries:**
+**When to use hybrid routing:**
+- When you want contextual routing (different models for different query types) after a warm-up period
+- Use `algorithm="hybrid_thompson_linucb"` to enable
+
+**How hybrid works:**
 ```
-Queries 0-1999:
-  ┌────────────────────────────────────────┐
-  │ Thompson Sampling (UCB1)               │
-  │ - No embedding computation             │
-  │ - Fast exploration (30% faster)        │
-  │ - Builds quality priors for each model │
-  └────────────────────────────────────────┘
+Phase 1 (0-2000 queries): Thompson Sampling
+  - No embedding computation
+  - Fast Bayesian exploration
+  - Builds quality priors for each model
 
-Query 2000: Knowledge Transfer
-  ┌────────────────────────────────────────┐
-  │ Convert Thompson Sampling quality      │
-  │ estimates to LinUCB initial state:     │
-  │                                        │
-  │ For each model:                        │
-  │   quality_estimate = alpha / (alpha + beta)
-  │   Initialize LinUCB b vector with      │
-  │   quality_estimate weighted features   │
-  └────────────────────────────────────────┘
-
-Queries 2000+:
-  ┌────────────────────────────────────────┐
-  │ LinUCB (Contextual)                    │
-  │ - Uses query embeddings                │
-  │ - Context-aware routing                │
-  │ - Builds on Thompson priors            │
-  └────────────────────────────────────────┘
+Phase 2 (2000+ queries): LinUCB
+  - Uses query embeddings for context-aware routing
+  - Knowledge transferred from Thompson Sampling priors
 ```
 
-**Test verification:** `test_hybrid_routing_feedback_loop` proves learning works across phase transition.
+**Default (Thompson Sampling only):**
+```python
+router = Router()  # Pure Thompson Sampling, no phase transition
+```
+
+**Hybrid (optional):**
+```python
+router = Router(algorithm="hybrid_thompson_linucb")  # Phase transition at 2000 queries
+```
+
+See `docs/HYBRID_ROUTING_ALGORITHMS.md` for detailed hybrid routing documentation.
 
 ### Code Paths (for debugging)
 
@@ -1331,5 +1326,5 @@ logger.info(
 
 ---
 
-**Last Updated**: 2025-11-25
-**Status**: Phase 3 complete, performance optimizations shipped
+**Last Updated**: 2025-11-27
+**Status**: Phase 3 complete, Thompson Sampling default (PR #169)

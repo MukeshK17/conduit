@@ -38,7 +38,7 @@ Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powere
 - **Routing**: Rule-based only (cheapest, fastest, round-robin, least-busy)
 
 ### Conduit Overview
-- **What**: ML-powered LLM routing using contextual bandits (Thompson Sampling)
+- **What**: ML-powered LLM routing using bandit algorithms (Thompson Sampling default)
 - **Unique Value**: Learns which model works best for YOUR workload
 - **Providers**: 5 via PydanticAI (OpenAI, Anthropic, Google, Groq, Ollama)
 - **Routing**: ML-based learning that improves with usage
@@ -413,5 +413,5 @@ This would allow Conduit to use LiteLLM for execution while keeping ML routing. 
 
 ---
 
-**Last Updated**: 2025-11-21
+**Last Updated**: 2025-11-27
 **Next Review**: After Path 1 implementation

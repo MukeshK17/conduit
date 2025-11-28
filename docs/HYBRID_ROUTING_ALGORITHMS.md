@@ -1,13 +1,18 @@
-# Hybrid Routing Algorithms
+# Hybrid Routing Algorithms (Optional)
 
 **Version**: 0.1.0
 **Last Updated**: 2025-11-27
+
+> **Note**: As of PR #169, the default algorithm is **pure Thompson Sampling** (non-hybrid). This document covers **optional hybrid routing** for users who want contextual routing after a warm-up period.
+>
+> **Default**: `Router()` uses Thompson Sampling only
+> **Hybrid**: `Router(algorithm="hybrid_thompson_linucb")` enables phase transition
 
 ---
 
 ## Overview
 
-Conduit's hybrid routing system supports **4 configurable algorithm combinations** for optimizing the cold-start vs warm-routing trade-off. This flexibility allows you to choose the best strategy for your workload based on quality requirements, cost constraints, and convergence speed needs.
+Conduit's **optional** hybrid routing system supports **4 configurable algorithm combinations** for optimizing the cold-start vs warm-routing trade-off. Use hybrid routing when you want context-aware model selection (different models for different query types) after an initial exploration period.
 
 ## The 4 Algorithm Combinations
 
@@ -37,12 +42,12 @@ router = HybridRouter(
 
 ---
 
-### 2. Thompson Sampling → LinUCB (Higher Quality Cold Start, Default)
+### 2. Thompson Sampling → LinUCB (Higher Quality Cold Start)
 
 **Phase 1**: Thompson Sampling (Bayesian non-contextual)
 **Phase 2**: LinUCB (contextual linear UCB)
 
-**Best for**: Applications where quality matters more than cost, even during cold start.
+**Best for**: Applications where quality matters and you want contextual routing after warm-up.
 
 **Characteristics**:
 - **Cold Start (0-2,000 queries)**: Thompson Sampling achieves higher quality through Bayesian exploration
@@ -116,7 +121,7 @@ router = HybridRouter(
 
 | Combination | Cold Start Quality | Warm Routing | Cold Start Cost | Use Case |
 |-------------|-------------------|--------------|-----------------|----------|
-| **Thompson → LinUCB** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 💰💰 | **Default - Quality-first** |
+| **Thompson → LinUCB** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 💰💰 | Quality-first hybrid |
 | **UCB1 → LinUCB** | ⭐⭐ | ⭐⭐⭐⭐ | 💰 | Fast convergence |
 | **UCB1 → C.Thompson** | ⭐⭐ | ⭐⭐⭐⭐ | 💰 | Bayesian uncertainty |
 | **Thompson → C.Thompson** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 💰💰💰 | Research/Max quality |
@@ -239,15 +244,26 @@ HybridRouter(
 
 ## When to Use Each Configuration
 
-### Production Default
+### Simple Default (Thompson Sampling Only)
 
 ```python
-# Default: Thompson Sampling → LinUCB (quality-first)
-router = HybridRouter(models=["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet"])
-# Uses thompson_sampling by default for superior cold-start quality
+# Default (no hybrid): Pure Thompson Sampling
+router = Router()
+# Best for most users - simple, effective, no phase transition
 ```
 
-**Why**: Better model selection during cold start through Bayesian exploration, proven LinUCB performance in warm routing.
+**Why**: Thompson Sampling alone provides excellent cold-start performance. Only use hybrid if you specifically need contextual routing.
+
+### Hybrid: Quality-First
+
+```python
+# Hybrid: Thompson Sampling → LinUCB (contextual after warm-up)
+router = Router(algorithm="hybrid_thompson_linucb")
+# Phase 1: Thompson Sampling (0-2000 queries)
+# Phase 2: LinUCB with context (2000+ queries)
+```
+
+**Why**: Better model selection during cold start through Bayesian exploration, plus contextual routing for query-specific optimization after warm-up.
 
 ### Fast Convergence (Lower Cost)
 
@@ -282,39 +298,26 @@ router = HybridRouter(
 
 ## Migration Guide
 
-### Existing Deployments
+### From Pre-PR#169 (Hybrid Default) to PR#169+ (Thompson Default)
 
-**New Default (Thompson Sampling → LinUCB)**:
-
-```python
-# New default (version 0.2.0+)
-router = HybridRouter(models=["gpt-4o-mini", "gpt-4o"])
-# Uses thompson_sampling by default (quality-first cold start)
-```
-
-**Upgrading from UCB1 → LinUCB**:
-
-If you have existing routers with UCB1 state, they'll automatically convert:
+**New Default (Pure Thompson Sampling)**:
 
 ```python
-# Old router had UCB1 state saved
-router = HybridRouter(models=["gpt-4o-mini", "gpt-4o"])
-# New default is thompson_sampling
-
-await router.load_state(store, "router-1", allow_conversion=True)
-# ✅ Automatically converts UCB1 → Thompson Sampling state
+# New default (PR #169+): Pure Thompson Sampling, no hybrid
+router = Router()
+# Simple, effective, no phase transition needed
 ```
 
-**Staying with UCB1** (opt-out):
+**Keep using hybrid routing**:
+
+If you want the old hybrid behavior, explicitly enable it:
 
 ```python
-# Explicitly use UCB1 if you prefer fast convergence over quality
-router = HybridRouter(
-    models=["gpt-4o-mini", "gpt-4o"],
-    phase1_algorithm="ucb1",
-    phase2_algorithm="linucb"
-)
+# Explicit hybrid routing (old default behavior)
+router = Router(algorithm="hybrid_thompson_linucb")
 ```
+
+**State migration**: Existing saved states will work with the new Thompson Sampling default. The algorithm parameter determines behavior, not saved state format.
 
 ### Fresh Start for Benchmarking
 

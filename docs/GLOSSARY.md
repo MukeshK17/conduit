@@ -107,14 +107,20 @@ Dimensionality reduction technique. Compresses embeddings (384 or 1536 dims) to 
 ## Routing Phases
 
 ### Cold Start
-Initial period when the system has no learned preferences. Handled by UCB1 phase in hybrid routing.
+Initial period when the system has no learned preferences. Thompson Sampling (default) handles cold start efficiently via Bayesian exploration.
 
-### Hybrid Routing
-Two-phase strategy for efficient learning:
+### Default Routing (Thompson Sampling)
+The default algorithm as of PR #169. Simple, effective Bayesian bandit:
+- No embedding computation needed
+- Excellent cold-start performance
+- Uses Beta distributions for uncertainty
 
-1. **Phase 1 (UCB1)**: First ~2,000 queries
+### Hybrid Routing (Optional)
+Two-phase strategy for contextual learning (use `algorithm="hybrid_thompson_linucb"`):
+
+1. **Phase 1 (Thompson Sampling)**: First ~2,000 queries
    - Non-contextual (ignores query content)
-   - Fast exploration of model quality
+   - Bayesian exploration of model quality
    - No embedding computation needed
 
 2. **Phase 2 (LinUCB)**: After threshold
@@ -123,7 +129,7 @@ Two-phase strategy for efficient learning:
    - Requires embedding computation
 
 ### Transition
-Switch from UCB1 to LinUCB at configured threshold. Transfers learned reward estimates to give LinUCB a "warm start."
+Switch from Thompson Sampling to LinUCB at configured threshold. Transfers learned reward estimates to give LinUCB a "warm start."
 
 ### Convergence
 Point where the bandit has learned stable preferences. Exploration decreases, exploitation increases. Typically 5,000-35,000 queries depending on model count and query diversity.
@@ -137,9 +143,9 @@ Numerical signal indicating routing quality. Computed from multiple factors:
 
 ```python
 reward = (
-    quality_weight * quality_score +      # 0.5 default
-    cost_weight * (1 - normalized_cost) + # 0.3 default
-    latency_weight * (1 - normalized_latency)  # 0.2 default
+    quality_weight * quality_score +      # 0.7 default
+    cost_weight * (1 - normalized_cost) + # 0.2 default
+    latency_weight * (1 - normalized_latency)  # 0.1 default
 )
 ```
 
@@ -252,9 +258,9 @@ Multi-objective optimization weights:
 
 ```yaml
 reward_weights:
-  quality: 0.5   # Maximize quality
-  cost: 0.3      # Minimize cost
-  latency: 0.2   # Minimize latency
+  quality: 0.7   # Maximize quality (default)
+  cost: 0.2      # Minimize cost (default)
+  latency: 0.1   # Minimize latency (default)
 ```
 
 ---

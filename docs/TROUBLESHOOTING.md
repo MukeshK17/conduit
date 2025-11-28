@@ -2,7 +2,7 @@
 
 **Purpose**: Debug common issues with Conduit's ML-powered routing system
 
-**Last Updated**: 2025-11-24
+**Last Updated**: 2025-11-27
 
 ---
 
@@ -90,11 +90,11 @@ bandit = EpsilonGreedyBandit(
 # Reset to explore all arms again
 router.bandit.reset()
 
-# Or create new router with different algorithm
+# Or create new router (default is Thompson Sampling)
 from conduit.engines.router import Router
 
-router = Router(algorithm="thompson_sampling")
-# Thompson Sampling explores more naturally via sampling
+router = Router()  # Default: Thompson Sampling
+# Thompson Sampling explores more naturally via Bayesian sampling
 ```
 
 **Solution 3: Adjust Reward Weights**
@@ -190,14 +190,17 @@ else:
     print("If still inconsistent, check reward distributions")
 ```
 
-**Solution 2: Use Hybrid Routing for Faster Convergence**
+**Solution 2: Use Hybrid Routing for Contextual Learning (Optional)**
 ```python
-from conduit.engines.hybrid_router import HybridRouter
+from conduit.engines.router import Router
 
-# Converges 30% faster than pure LinUCB
-router = HybridRouter()
-# Phase 1 (0-2000): Fast UCB1 convergence
+# If you need contextual routing after exploration, use hybrid
+router = Router(algorithm="hybrid_thompson_linucb")
+# Phase 1 (0-2000): Thompson Sampling exploration
 # Phase 2 (2000+): Contextual LinUCB refinement
+
+# Note: Default Thompson Sampling is sufficient for most use cases
+router = Router()  # Simple, effective, no phase transition needed
 ```
 
 **Solution 3: Reduce Exploration After Learning**
