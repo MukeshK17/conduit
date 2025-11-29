@@ -1,7 +1,7 @@
 ---
 name: conduit_agent
 description: ML-powered LLM routing system developer implementing contextual bandits, managing tests, and maintaining production-grade Python code
-last_updated: 2025-11-27
+last_updated: 2025-11-29
 ---
 
 # Conduit Agent Guide
@@ -13,8 +13,8 @@ last_updated: 2025-11-27
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
-**Test Health**: 100% passing (719 tests), 81% coverage
-**Latest**: Multi-replica state management (#156, #157), CONDUIT_ROUTER_ID env var, optimistic locking with retry
+**Test Health**: 100% passing (950 tests), 91% coverage
+**Latest**: Pydantic improvements with @computed_field (PR #180), test coverage increase to 91% (PR #175), gpt-5 default models (PR #173)
 
 ---
 
@@ -895,9 +895,30 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-28)
+## Current Status (2025-11-29)
 
-### Latest: Multi-Replica State Management (#156, #157) ✅
+### Latest: Pydantic Improvements (PR #180)
+
+**@computed_field and Typed Models** (PR #180, 2025-11-29):
+- Added `@computed_field` decorator to Pydantic model properties for proper serialization with `model_dump()`
+- Files updated: `conduit/core/models.py`, `conduit/engines/bandits/base.py`, `conduit/core/pricing.py`
+- Created typed `ContextMetadata` model to replace `dict[str, Any]` in API layer
+- Updated `CompleteRequest` to use `QueryConstraints` and `ContextMetadata` typed models
+- Backward compatible: service layer accepts both typed models and dicts
+
+### Latest: Test Coverage Increase to 91% (PR #175)
+
+**Major Test Suite Expansion** (PR #175, merged 2025-11-29):
+- Coverage increased from 81% to 91%
+- Added 230+ new tests (now 950 total test functions)
+- Fixed CI docs-only filter
+- All bandit algorithms at 100% coverage
+
+### Previous: gpt-5 Default Models (PR #173)
+
+- Added `gpt-5` to default_models list for routing
+
+### Previous: Multi-Replica State Management (#156, #157) ✅
 
 **Kubernetes Multi-Replica Support** (commit 342a044, 2025-11-28):
 - **CONDUIT_ROUTER_ID Environment Variable** (#156):
