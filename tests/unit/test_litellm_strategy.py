@@ -200,9 +200,9 @@ def test_extract_model_ids_with_standard_litellm_format():
             "litellm_params": {"model": "anthropic/claude-3-opus"}
         }
     ]
-    
+
     model_ids = extract_model_ids(model_list)
-    
+
     # Should auto-generate IDs from model_name
     assert model_ids == ["gpt-4", "claude-3"]
 
@@ -216,9 +216,9 @@ def test_extract_model_ids_with_explicit_id():
             "model_info": {"id": "gpt-4-openai"}
         }
     ]
-    
+
     model_ids = extract_model_ids(model_list)
-    
+
     # Should use explicit ID
     assert model_ids == ["gpt-4-openai"]
 
@@ -230,9 +230,9 @@ def test_extract_model_ids_from_litellm_params():
             "litellm_params": {"model": "openai/gpt-4o-mini"}
         }
     ]
-    
+
     model_ids = extract_model_ids(model_list)
-    
+
     # Should normalize litellm_params.model (remove provider prefix)
     assert model_ids == ["gpt-4o-mini"]
 
@@ -245,6 +245,6 @@ def test_validate_litellm_model_list_standard_format():
             "litellm_params": {"model": "openai/gpt-4"}
         }
     ]
-    
+
     # Should not raise ValueError
     validate_litellm_model_list(model_list)
