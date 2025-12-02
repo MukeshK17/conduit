@@ -24,15 +24,15 @@ class TestContextualThompsonSamplingBandit:
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
         assert bandit.lambda_reg == 1.0
-        assert bandit.feature_dim == 386
+        assert bandit.feature_dim == 1538
 
         # Check initial posterior parameters - should be prior (uninformative)
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (uninformative prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((1538, 1)))
             # Sigma should be identity (uninformative prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(1538))
 
     def test_initialization_custom_lambda(self, test_arms):
         """Test bandit with custom regularization parameter."""
@@ -47,15 +47,15 @@ class TestContextualThompsonSamplingBandit:
         x = bandit._extract_features(test_features)
 
         # Check shape
-        assert x.shape == (386, 1)
+        assert x.shape == (1538, 1)
 
-        # Check embedding values (first 384 dims)
-        assert np.allclose(x[:384, 0], 0.1)
+        # Check embedding values (first 1536 dims)
+        assert np.allclose(x[:1536, 0], 0.1)
 
         # Check metadata (last 2 dims)
-        assert np.isclose(x[384, 0], 50.0 / 1000.0)  # normalized token_count
-        assert np.isclose(x[385, 0], 0.5)  # complexity_score
-        assert np.isclose(x[385, 0], test_features.complexity_score)  # complexity_score (last metadata)
+        assert np.isclose(x[1536, 0], 50.0 / 1000.0)  # normalized token_count
+        assert np.isclose(x[1537, 0], 0.5)  # complexity_score
+        assert np.isclose(x[1537, 0], test_features.complexity_score)  # complexity_score (last metadata)
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -138,7 +138,7 @@ class TestContextualThompsonSamplingBandit:
             quality_weight=0.70, cost_weight=0.20, latency_weight=0.10
         )
 
-        Sigma_inv = np.identity(386) + 1.0 * (x @ x.T)
+        Sigma_inv = np.identity(1538) + 1.0 * (x @ x.T)
         expected_Sigma = np.linalg.inv(Sigma_inv)
         expected_mu = expected_Sigma @ (1.0 * reward * x)
 
@@ -179,14 +179,14 @@ class TestContextualThompsonSamplingBandit:
 
         # Context 1: Simple query (low complexity)
         context1 = QueryFeatures(
-            embedding=[0.1] * 384,
+            embedding=[0.1] * 1536,
             token_count=10,
             complexity_score=0.1
         )
 
         # Context 2: Complex query (high complexity)
         context2 = QueryFeatures(
-            embedding=[0.9] * 384,
+            embedding=[0.9] * 1536,
             token_count=100,
             complexity_score=0.9
         )
@@ -263,9 +263,9 @@ class TestContextualThompsonSamplingBandit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((1538, 1)))
             # Sigma should be identity (prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(1538))
             # History should be empty
             assert len(bandit.observation_history[model_id]) == 0
 
@@ -295,7 +295,7 @@ class TestContextualThompsonSamplingBandit:
         assert "arm_sigma_traces" in stats
 
         assert stats["lambda_reg"] == 1.5
-        assert stats["feature_dim"] == 386
+        assert stats["feature_dim"] == 1538
         assert stats["total_queries"] == 1
 
     @pytest.mark.asyncio
@@ -327,7 +327,7 @@ class TestContextualThompsonSamplingBandit:
         )
 
         features = QueryFeatures(
-            embedding=[0.5] * 384,
+            embedding=[0.5] * 1536,
             token_count=50,
             complexity_score=0.5
         )
@@ -376,7 +376,7 @@ class TestContextualThompsonSamplingBandit:
         # Short queries (token_count < 50) -> o4-mini performs well
         for _ in range(10):
             features = QueryFeatures(
-                embedding=[np.random.rand() for _ in range(384)],
+                embedding=[np.random.rand() for _ in range(1536)],
                 token_count=20,
                 complexity_score=0.3
             )
@@ -398,7 +398,7 @@ class TestContextualThompsonSamplingBandit:
         # Long queries (token_count > 200) -> gpt-5.1 performs well
         for _ in range(10):
             features = QueryFeatures(
-                embedding=[np.random.rand() for _ in range(384)],
+                embedding=[np.random.rand() for _ in range(1536)],
                 token_count=300,
                 complexity_score=0.8
             )

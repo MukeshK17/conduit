@@ -124,7 +124,7 @@ embeddings:
   # - fastembed: Local ONNX models (~100MB, pip install fastembed)
   # - sentence-transformers: Local PyTorch models (~2GB, pip install sentence-transformers)
   # - huggingface: HuggingFace Inference API (requires HF_TOKEN)
-  provider: auto
+  provider: openai
 
   # Model selection (provider-specific, null = use provider default)
   # OpenAI: text-embedding-3-small (1536 dims), text-embedding-3-large (3072 dims)
@@ -152,9 +152,9 @@ embeddings:
 # Controls dimensionality of feature vectors for bandit algorithms
 # These are auto-calculated based on embedding provider and PCA settings
 features:
-  embedding_dim: 384              # Base embedding dimension (provider-dependent)
-  full_dim: 386                   # Full feature dimension (embedding + 2 metadata)
-  pca_dim: 66                     # PCA feature dimension (64 components + 2 metadata)
+  embedding_dim: 1536             # Base embedding dimension (OpenAI text-embedding-3-small)
+  full_dim: 1538                  # Full feature dimension (embedding + 2 metadata)
+  pca_dim: 130                    # PCA feature dimension (128 components + 2 metadata)
   token_count_normalization: 1000.0  # Divisor for token count normalization
 
 # Quality Estimation Configuration

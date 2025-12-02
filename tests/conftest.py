@@ -38,8 +38,8 @@ def mock_huggingface_embeddings():
     authentication for router.huggingface.co. Unit tests should not make
     real API calls, so we mock the embedding provider globally.
     """
-    # Create fake 384-dim embedding (all-MiniLM-L6-v2 dimension)
-    fake_embedding = [0.1] * 384
+    # Create fake 1536-dim embedding (OpenAI text-embedding-3-small dimension)
+    fake_embedding = [0.1] * 1536
 
     async def mock_embed(self, text: str) -> list[float]:
         return fake_embedding
@@ -106,7 +106,7 @@ def test_features() -> QueryFeatures:
     """Create canonical test query features for bandit tests.
 
     Returns a QueryFeatures instance with:
-    - 384-dim embedding (all-MiniLM-L6-v2 compatible)
+    - 1536-dim embedding (OpenAI text-embedding-3-small compatible)
     - Moderate token count (50)
     - Medium complexity (0.5)
     - Query text for context detection
@@ -114,7 +114,7 @@ def test_features() -> QueryFeatures:
     Used by: All bandit algorithm test files
     """
     return QueryFeatures(
-        embedding=[0.1] * 384,
+        embedding=[0.1] * 1536,
         token_count=50,
         complexity_score=0.5,
         query_text="test query",
@@ -123,26 +123,26 @@ def test_features() -> QueryFeatures:
 
 @pytest.fixture
 def mock_embedding_provider():
-    """Create a mock embedding provider that returns consistent 384-dim embeddings."""
+    """Create a mock embedding provider that returns consistent 1536-dim embeddings."""
     from unittest.mock import Mock
 
     async def mock_embed_batch(texts):
         """Return one embedding per input text."""
-        return [[0.1] * 384 for _ in texts]
+        return [[0.1] * 1536 for _ in texts]
 
     mock_provider = Mock()
-    mock_provider.embed = AsyncMock(return_value=[0.1] * 384)
+    mock_provider.embed = AsyncMock(return_value=[0.1] * 1536)
     mock_provider.embed_batch = mock_embed_batch
-    mock_provider.dimension = 384
+    mock_provider.dimension = 1536
     return mock_provider
 
 
 @pytest.fixture
 def test_analyzer(mock_embedding_provider):
-    """Create query analyzer with consistent 384-dim embeddings.
+    """Create query analyzer with consistent 1536-dim embeddings.
 
-    This prevents auto-detection of OpenAI embeddings which would create
-    dimension mismatches (1536-dim vs 386-dim expected by bandits).
+    This prevents auto-detection of different embeddings which would create
+    dimension mismatches.
 
     Used by: Tests that need to create routers/bandits with LinUCB
     """

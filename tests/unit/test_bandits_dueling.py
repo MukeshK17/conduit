@@ -21,7 +21,7 @@ class TestDuelingBanditInit:
 
         assert bandit.name == "dueling_bandit"
         assert len(bandit.arms) == 3
-        assert bandit.feature_dim == 386
+        assert bandit.feature_dim == 1538
         assert bandit.exploration_weight == 0.1
         assert bandit.learning_rate == 0.01
         assert bandit.total_queries == 0
@@ -30,7 +30,7 @@ class TestDuelingBanditInit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert model_id in bandit.preference_weights
             weights = bandit.preference_weights[model_id]
-            assert weights.shape == (386, 1)
+            assert weights.shape == (1538, 1)
             assert np.allclose(weights, 0.0)
 
     def test_initialization_custom_params(self, test_arms):
@@ -189,7 +189,7 @@ class TestDuelingBanditUpdate:
         arm_b = test_arms[1]  # gpt-4o
 
         # Give B some initial positive weight
-        bandit.preference_weights[arm_b.model_id] = np.ones((386, 1)) * 0.1
+        bandit.preference_weights[arm_b.model_id] = np.ones((1538, 1)) * 0.1
 
         w_b_before = bandit.preference_weights[arm_b.model_id].copy()
 
@@ -239,8 +239,8 @@ class TestDuelingBanditUpdate:
         arm_b = test_arms[1]  # gpt-4o
 
         # Give both arms some initial positive weight
-        bandit.preference_weights[arm_a.model_id] = np.ones((386, 1)) * 0.1
-        bandit.preference_weights[arm_b.model_id] = np.ones((386, 1)) * 0.1
+        bandit.preference_weights[arm_a.model_id] = np.ones((1538, 1)) * 0.1
+        bandit.preference_weights[arm_b.model_id] = np.ones((1538, 1)) * 0.1
 
         w_a_before = bandit.preference_weights[arm_a.model_id].copy()
         w_b_before = bandit.preference_weights[arm_b.model_id].copy()
@@ -528,7 +528,7 @@ class TestDuelingBanditStatePersistence:
         assert state.total_queries == 1
         assert state.exploration_weight == 0.15
         assert state.learning_rate == 0.02
-        assert state.feature_dim == 386
+        assert state.feature_dim == 1538
         assert set(state.arm_ids) == {"o4-mini", "gpt-5.1", "claude-haiku-4-5"}
 
         # Check preference weights were serialized
@@ -536,7 +536,7 @@ class TestDuelingBanditStatePersistence:
         assert len(state.preference_weights) == 3
         for arm_id, weights in state.preference_weights.items():
             assert isinstance(weights, list)
-            assert len(weights) == 386
+            assert len(weights) == 1538
 
         # Check preference counts were serialized
         assert state.preference_counts is not None
@@ -607,7 +607,7 @@ class TestDuelingBanditStatePersistence:
         from conduit.core.state_store import BanditState
         from datetime import UTC, datetime
 
-        bandit = DuelingBandit(test_arms, feature_dim=386)
+        bandit = DuelingBandit(test_arms, feature_dim=1538)
         state = BanditState(
             algorithm="dueling_bandit",
             arm_ids=["o4-mini", "gpt-5.1", "claude-haiku-4-5"],
@@ -616,7 +616,7 @@ class TestDuelingBanditStatePersistence:
             updated_at=datetime.now(UTC),
         )
 
-        with pytest.raises(ValueError, match="State feature_dim 100 != 386"):
+        with pytest.raises(ValueError, match="State feature_dim 100 != 1538"):
             bandit.from_state(state)
 
     @pytest.mark.asyncio

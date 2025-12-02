@@ -236,8 +236,8 @@ class TestLinUCBNonStationary:
         assert len(bandit.observation_history[model_id]) == 1
         obs_x, obs_r = bandit.observation_history[model_id][0]
 
-        # Feature vector should be (386, 1)
-        assert obs_x.shape == (386, 1)
+        # Feature vector should be (1538, 1)
+        assert obs_x.shape == (1538, 1)
 
         # Reward should match composite reward using bandit's weights
         expected_reward = feedback.calculate_reward(
@@ -295,7 +295,7 @@ class TestLinUCBNonStationary:
         # Phase 1: Simple queries (low complexity) get good quality
         for _ in range(50):
             features_simple = QueryFeatures(
-                embedding=[0.1] * 384,
+                embedding=[0.1] * 1536,
                 token_count=10,  # Simple
                 complexity_score=0.2,  # Low complexity
                 query_text="Simple query",
@@ -316,7 +316,7 @@ class TestLinUCBNonStationary:
         # (This will push out all Phase 1 observations)
         for _ in range(100):
             features_complex = QueryFeatures(
-                embedding=[0.9] * 384,
+                embedding=[0.9] * 1536,
                 token_count=500,  # Complex
                 complexity_score=0.9,  # High complexity
                 query_text="Complex technical query",
