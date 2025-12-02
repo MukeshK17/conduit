@@ -13,6 +13,143 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def load_default_models() -> list[str]:
+    """Load default model list from priors defined in conduit.yaml.
+
+    Extracts all unique model IDs across all context priors (code, creative, etc.).
+    This ensures consistency between priors and available models.
+
+    Returns:
+        List of model IDs to use for routing. Falls back to hardcoded defaults if YAML not found.
+    """
+    # Search for conduit.yaml in multiple locations (prioritize project root)
+    search_paths = [
+        Path(__file__).parent.parent.parent
+        / "conduit.yaml",  # Conduit project root (priority)
+        Path("conduit.yaml"),  # Current directory
+        Path.cwd() / "conduit.yaml",  # Explicit current directory
+    ]
+
+    for config_path in search_paths:
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    config = yaml.safe_load(f)
+                    if not isinstance(config, dict):
+                        continue
+
+                    priors_section = config.get("priors", {})
+                    if not isinstance(priors_section, dict):
+                        continue
+
+                    # Extract all unique model IDs from all contexts
+                    model_ids = set()
+                    for context_priors in priors_section.values():
+                        if isinstance(context_priors, dict):
+                            model_ids.update(context_priors.keys())
+
+                    if model_ids:
+                        # Return sorted list for consistent ordering
+                        return sorted(model_ids)
+            except Exception:
+                continue
+
+    # Fallback: hardcoded defaults if no YAML config found
+    return [
+        "claude-opus-4.5",
+        "claude-sonnet-4.5",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gpt-5",
+        "gpt-5.1",
+        "o4-mini",
+    ]
+
+
+def load_embeddings_config() -> dict[str, Any]:
+    """Load embeddings configuration from conduit.yaml.
+
+    Returns configuration for embedding provider, model selection, and PCA settings.
+    Falls back to hardcoded defaults if YAML not found.
+
+    Returns:
+        Dictionary with embedding configuration:
+        - provider: Embedding provider type (auto, openai, cohere, fastembed, etc.)
+        - model: Provider-specific model identifier (null = use provider default)
+        - pca_enabled: Enable PCA dimensionality reduction
+        - pca_components: Number of PCA components
+        - pca_auto_retrain: Auto-retrain PCA on workload
+        - pca_retrain_threshold: Minimum queries before auto-retraining
+    """
+    # Defaults (PCA disabled by default)
+    defaults = {
+        "provider": "auto",
+        "model": None,
+        "pca_enabled": False,
+        "pca_components": 128,
+        "pca_auto_retrain": True,
+        "pca_retrain_threshold": 150,
+    }
+
+    # Search for conduit.yaml
+    search_paths = [
+        Path(__file__).parent.parent.parent / "conduit.yaml",  # Conduit project root
+        Path("conduit.yaml"),  # Current directory
+        Path.cwd() / "conduit.yaml",  # Explicit current directory
+    ]
+
+    for config_path in search_paths:
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    config = yaml.safe_load(f)
+                    if isinstance(config, dict):
+                        embeddings_config = config.get("embeddings", {})
+                        if isinstance(embeddings_config, dict) and embeddings_config:
+                            # Build result from YAML
+                            result = defaults.copy()
+
+                            # Top-level settings
+                            if "provider" in embeddings_config:
+                                result["provider"] = embeddings_config["provider"]
+                            if "model" in embeddings_config:
+                                result["model"] = embeddings_config["model"]
+
+                            # PCA settings (nested)
+                            pca_config = embeddings_config.get("pca", {})
+                            if isinstance(pca_config, dict) and pca_config:
+                                if "enabled" in pca_config:
+                                    result["pca_enabled"] = pca_config["enabled"]
+                                if "components" in pca_config:
+                                    result["pca_components"] = pca_config["components"]
+                                if "auto_retrain" in pca_config:
+                                    result["pca_auto_retrain"] = pca_config[
+                                        "auto_retrain"
+                                    ]
+                                if "retrain_threshold" in pca_config:
+                                    result["pca_retrain_threshold"] = pca_config[
+                                        "retrain_threshold"
+                                    ]
+
+                            return result
+            except Exception:
+                continue
+
+    # Try environment variables as fallback
+    env_overrides = {}
+    if os.getenv("EMBEDDING_PROVIDER"):
+        env_overrides["provider"] = os.getenv("EMBEDDING_PROVIDER", "auto")
+    if os.getenv("EMBEDDING_MODEL"):
+        env_overrides["model"] = os.getenv("EMBEDDING_MODEL")
+    if os.getenv("USE_PCA"):
+        env_overrides["pca_enabled"] = os.getenv("USE_PCA", "false").lower() == "true"
+    if os.getenv("PCA_COMPONENTS"):
+        env_overrides["pca_components"] = int(os.getenv("PCA_COMPONENTS", "128"))
+
+    return {**defaults, **env_overrides}
+
+
 class Settings(BaseSettings):
     """Application configuration from environment variables."""
 
@@ -66,37 +203,34 @@ class Settings(BaseSettings):
     aws_region: str = Field(default="us-east-1", description="AWS Region (for Bedrock)")
     huggingface_api_key: str = Field(default="", description="HuggingFace API key")
 
-    # ML Configuration - Embedding Provider
+    # ML Configuration - Embedding Provider (loaded from YAML embeddings section)
     embedding_provider: str = Field(
-        default="auto",
-        description="Embedding provider type (auto, openai, cohere, fastembed, sentence-transformers, huggingface)",
+        default_factory=lambda: load_embeddings_config().get("provider", "auto"),
+        description="Embedding provider type (loaded from conduit.yaml embeddings.provider)",
     )
-    embedding_model: str = Field(
-        default="",
-        description="Embedding model identifier (provider-specific, empty = use provider default)",
+    embedding_model: str | None = Field(
+        default_factory=lambda: load_embeddings_config().get("model"),
+        description="Embedding model identifier (loaded from conduit.yaml embeddings.model, null = provider default)",
     )
     embedding_api_key: str = Field(
         default="",
         description="API key for embedding provider (if required, defaults to provider-specific env var)",
     )
     default_models: list[str] = Field(
-        default=[
-            "o4-mini",  # OpenAI - cheap, fast reasoning
-            "gpt-5",  # OpenAI - mid-tier, strong reasoning
-            "gpt-5.1",  # OpenAI - latest flagship
-            "claude-sonnet-4.5",  # Anthropic - balanced quality
-            "claude-opus-4.5",  # Anthropic - premium quality
-            "gemini-2.5-pro",  # Google - competitive flagship
-        ],
-        description="Available models for routing (must match conduit.yaml priors)",
+        default_factory=load_default_models,
+        description="Available models for routing (loaded from conduit.yaml priors)",
     )
 
-    # Feature Dimension Reduction (PCA)
+    # Feature Dimension Reduction (PCA) - loaded from YAML embeddings.pca section
     use_pca: bool = Field(
-        default=False, description="Enable PCA dimensionality reduction for embeddings"
+        default_factory=lambda: load_embeddings_config().get("pca_enabled", False),
+        description="Enable PCA dimensionality reduction (loaded from conduit.yaml embeddings.pca.enabled)",
     )
     pca_dimensions: int = Field(
-        default=64, description="Target embedding dimensions after PCA", ge=8, le=384
+        default_factory=lambda: load_embeddings_config().get("pca_components", 128),
+        description="Target embedding dimensions after PCA (loaded from conduit.yaml embeddings.pca.components)",
+        ge=8,
+        le=2048,
     )
     pca_model_path: str = Field(
         default="models/pca.pkl", description="Path to fitted PCA model"
