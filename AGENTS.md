@@ -81,6 +81,12 @@ uv run mypy conduit/ --no-error-summary || echo "⚠️ Fix type errors before s
 - No API keys, tokens, passwords, secrets in ANY file
 - Use environment variables (.env files in .gitignore) ONLY
 
+**Model Configuration (CRITICAL)**:
+- NEVER add, remove, or rename models in `conduit.yaml` priors without explicit user request
+- NEVER change quality scores in priors without explicit user request
+- NEVER modify model mappings in `conduit.yaml` litellm.model_mappings
+- If you observe model-related errors/timeouts: ASK the user which approach to take, DO NOT modify configs
+
 **Code Quality**:
 - Skip tests to make builds pass
 - Disable type checking or linting errors

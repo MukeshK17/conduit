@@ -46,54 +46,54 @@ routing:
 # Model names must match your configured models.
 priors:
   code:
-    claude-sonnet-4.5: 0.92    # SWE-Bench leader, best for code
-    claude-opus-4.5: 0.90      # Premium coding capability
-    gpt-5.1: 0.88              # Strong coding performance
+    claude-sonnet-4-5-20250929: 0.92    # SWE-Bench leader, best for code
+    claude-opus-4-5-20251101: 0.90      # Premium coding capability
+    gpt-5.1-2025-11-13: 0.88              # Strong coding performance
     gemini-2.5-pro: 0.85       # Good coding alternative
-    gpt-5-mini: 0.80           # Fast, cost-effective coding
+    gpt-5-mini-2025-08-07: 0.80           # Fast, cost-effective coding
     gemini-2.5-flash: 0.75     # Quick coding responses
-    claude-haiku-4.5: 0.73     # Fast, budget-friendly
-    gpt-5-nano: 0.70           # Minimal but capable
+    claude-haiku-4-5-20251001: 0.73     # Fast, budget-friendly
+    gpt-5-nano-2025-08-07: 0.70           # Minimal but capable
 
   creative:
-    claude-opus-4.5: 0.94      # Excellent creativity
-    claude-sonnet-4.5: 0.90    # Strong creative writing
-    gpt-5.1: 0.86              # Good creative output
+    claude-opus-4-5-20251101: 0.94      # Excellent creativity
+    claude-sonnet-4-5-20250929: 0.90    # Strong creative writing
+    gpt-5.1-2025-11-13: 0.86              # Good creative output
     gemini-2.5-pro: 0.82       # Good creative alternative
-    gpt-5-mini: 0.76           # Acceptable creative
-    claude-haiku-4.5: 0.72     # Budget creative
+    gpt-5-mini-2025-08-07: 0.76           # Acceptable creative
+    claude-haiku-4-5-20251001: 0.72     # Budget creative
     gemini-2.5-flash: 0.70     # Fast creative responses
-    gpt-5-nano: 0.65           # Basic creative tasks
+    gpt-5-nano-2025-08-07: 0.65           # Basic creative tasks
 
   analysis:
-    claude-opus-4.5: 0.92      # Deep analytical ability
-    gpt-5.1: 0.89              # Strong analysis
-    claude-sonnet-4.5: 0.88    # Great for analysis
+    claude-opus-4-5-20251101: 0.92      # Deep analytical ability
+    gpt-5.1-2025-11-13: 0.89              # Strong analysis
+    claude-sonnet-4-5-20250929: 0.88    # Great for analysis
     gemini-2.5-pro: 0.85       # Strong reasoning
-    gpt-5-mini: 0.78           # Good for most analysis
-    claude-haiku-4.5: 0.74     # Lighter analysis
+    gpt-5-mini-2025-08-07: 0.78           # Good for most analysis
+    claude-haiku-4-5-20251001: 0.74     # Lighter analysis
     gemini-2.5-flash: 0.72     # Fast analytical responses
-    gpt-5-nano: 0.68           # Basic analytical tasks
+    gpt-5-nano-2025-08-07: 0.68           # Basic analytical tasks
 
   simple_qa:
-    gpt-5-nano: 0.90           # Optimized for simple QA
-    gpt-5-mini: 0.88           # Fast and accurate
+    gpt-5-nano-2025-08-07: 0.90           # Optimized for simple QA
+    gpt-5-mini-2025-08-07: 0.88           # Fast and accurate
     gemini-2.5-flash: 0.85     # Great for simple QA
-    claude-haiku-4.5: 0.84     # Fast, accurate, cheap
-    gpt-5.1: 0.82              # Reliable but overkill
-    claude-sonnet-4.5: 0.80    # Good but unnecessary
+    claude-haiku-4-5-20251001: 0.84     # Fast, accurate, cheap
+    gpt-5.1-2025-11-13: 0.82              # Reliable but overkill
+    claude-sonnet-4-5-20250929: 0.80    # Good but unnecessary
     gemini-2.5-pro: 0.78       # Too powerful for simple QA
-    claude-opus-4.5: 0.75      # Unnecessary power
+    claude-opus-4-5-20251101: 0.75      # Unnecessary power
 
   general:
-    gpt-5.1: 0.88              # Best all-rounder
-    claude-opus-4.5: 0.87      # Premium quality
-    claude-sonnet-4.5: 0.85    # Balanced performance
+    gpt-5.1-2025-11-13: 0.88              # Best all-rounder
+    claude-opus-4-5-20251101: 0.87      # Premium quality
+    claude-sonnet-4-5-20250929: 0.85    # Balanced performance
     gemini-2.5-pro: 0.83       # Strong alternative
-    gpt-5-mini: 0.80           # Cost-effective
-    claude-haiku-4.5: 0.76     # Budget-friendly
+    gpt-5-mini-2025-08-07: 0.80           # Cost-effective
+    claude-haiku-4-5-20251001: 0.76     # Budget-friendly
     gemini-2.5-flash: 0.74     # Fast and affordable
-    gpt-5-nano: 0.70           # Minimal general use
+    gpt-5-nano-2025-08-07: 0.70           # Minimal general use
 
 # Algorithm Hyperparameters
 # Configure exploration/exploitation trade-offs for bandit algorithms
