@@ -88,6 +88,10 @@ class QueryFeatures(BaseModel):
 
     Note: Domain classification features removed (were placeholder keyword matching).
     The embedding already captures semantic domain information implicitly.
+
+    Failure Handling:
+        If embedding generation fails, embedding_failed=True and embedding contains
+        a zero vector. The router will fall back to non-contextual algorithms.
     """
 
     embedding: list[float] = Field(
@@ -99,6 +103,10 @@ class QueryFeatures(BaseModel):
     )
     query_text: str | None = Field(
         None, description="Original query text (for context detection)"
+    )
+    embedding_failed: bool = Field(
+        default=False,
+        description="True if embedding generation failed and zero vector fallback was used",
     )
 
 

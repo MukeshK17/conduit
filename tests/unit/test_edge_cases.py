@@ -56,12 +56,134 @@ class TestQueryValidation:
         assert decision.selected_model in router.hybrid_router.models
 
 
-# NOTE: Embedding failure tests removed due to global autouse mock in conftest.py
-# Issue: router.py:48-50 documents "Embedding failures: Use zero vector, route with UCB1"
-# but analyzer.py:184 has no try/except around embed() call.
-#
-# TODO: Add integration test for embedding failure handling when implemented
-# TODO: File issue for embedding fallback implementation gap
+class _ConfigurableEmbeddingProvider:
+    """Test helper: embedding provider that can be configured to fail or succeed.
+
+    Implements the EmbeddingProvider interface without inheriting from ABC
+    to avoid import complexity in tests. Duck typing is sufficient here.
+    """
+
+    def __init__(self, should_fail: bool = True, dim: int = 384):
+        self.should_fail = should_fail
+        self._dimension = dim
+        self.call_count = 0
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension
+
+    @property
+    def provider_name(self) -> str:
+        return "configurable_test"
+
+    async def embed(self, text: str) -> list[float]:
+        self.call_count += 1
+        if self.should_fail:
+            raise RuntimeError("Embedding service unavailable")
+        return [0.1] * self._dimension
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        return [await self.embed(t) for t in texts]
+
+
+class TestEmbeddingFailureHandling:
+    """Test embedding failure fallback behavior."""
+
+    @pytest.mark.asyncio
+    async def test_analyzer_returns_zero_vector_on_embedding_failure(self):
+        """Analyzer should return zero vector when embedding fails."""
+        from conduit.engines.analyzer import QueryAnalyzer
+
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
+        features = await analyzer.analyze("Test query")
+
+        # Should return zero vector and set embedding_failed flag
+        assert features.embedding_failed is True
+        assert features.embedding == [0.0] * provider.dimension
+        assert len(features.embedding) == provider.dimension
+        assert features.token_count > 0
+        assert 0.0 <= features.complexity_score <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_hybrid_router_phase2_falls_back_on_embedding_failure(self):
+        """Router in phase2 should fall back to phase1 algorithm when embedding fails."""
+        from conduit.engines.hybrid_router import HybridRouter
+        from conduit.engines.analyzer import QueryAnalyzer
+
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
+
+        # Create router in phase2 (switch_threshold=0 means start in phase2)
+        router = HybridRouter(
+            models=["gpt-4o-mini", "gpt-4o"],
+            switch_threshold=0,  # Start in phase2 immediately
+            analyzer=analyzer,
+            feature_dim=provider.dimension + 2,  # embedding + token_count + complexity
+        )
+
+        query = Query(text="Test query for embedding failure")
+        decision = await router.route(query)
+
+        # Should still return a valid decision
+        assert decision is not None
+        assert decision.selected_model in ["gpt-4o-mini", "gpt-4o"]
+
+        # Should indicate embedding failure in metadata
+        assert decision.metadata.get("embedding_failed") is True
+        assert decision.metadata.get("fallback_reason") == "embedding_generation_failed"
+
+        # Features should have embedding_failed flag
+        assert decision.features.embedding_failed is True
+
+    @pytest.mark.asyncio
+    async def test_hybrid_router_phase1_handles_embedding_failure(self):
+        """Router in phase1 should continue routing when embedding fails."""
+        from conduit.engines.hybrid_router import HybridRouter
+        from conduit.engines.analyzer import QueryAnalyzer
+
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
+
+        # Create router in phase1 (high threshold means stay in phase1)
+        router = HybridRouter(
+            models=["gpt-4o-mini", "gpt-4o"],
+            switch_threshold=10000,  # Stay in phase1
+            analyzer=analyzer,
+            feature_dim=provider.dimension + 2,
+        )
+
+        query = Query(text="Test query for embedding failure in phase1")
+        decision = await router.route(query)
+
+        # Should still return a valid decision (phase1 doesn't need embeddings)
+        assert decision is not None
+        assert decision.selected_model in ["gpt-4o-mini", "gpt-4o"]
+
+        # Features should have embedding_failed flag even in phase1
+        assert decision.features.embedding_failed is True
+
+    @pytest.mark.asyncio
+    async def test_failed_embeddings_not_cached(self):
+        """Failed embeddings should not be cached, allowing retry on recovery."""
+        from conduit.engines.analyzer import QueryAnalyzer
+
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
+
+        # First call fails
+        features1 = await analyzer.analyze("Test query")
+        assert features1.embedding_failed is True
+        assert provider.call_count == 1
+
+        # Provider recovers
+        provider.should_fail = False
+
+        # Second call should retry (not use cached failure)
+        features2 = await analyzer.analyze("Test query")
+        assert features2.embedding_failed is False
+        assert features2.embedding == [0.1] * provider.dimension
+        assert provider.call_count == 2  # Called again, not cached
 
 
 class TestFeedbackValidation:
