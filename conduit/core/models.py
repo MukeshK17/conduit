@@ -93,7 +93,7 @@ class QueryFeatures(BaseModel):
         If embedding generation fails, embedding_failed=True and embedding contains
         a zero vector. The router will fall back to non-contextual algorithms.
     """
-    
+
     model_config = {"frozen": True}
 
     embedding: list[float] = Field(

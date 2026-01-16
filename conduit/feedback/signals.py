@@ -25,7 +25,7 @@ class RetrySignal(BaseModel):
     """
 
     model_config = {"frozen": True}
-    
+
     detected: bool = Field(default=False, description="Retry detected")
     delay_seconds: float | None = Field(
         None, description="Time since original query", ge=0.0
@@ -85,7 +85,7 @@ class ErrorSignal(BaseModel):
         error_type: Classification of error (api_error, timeout, empty_response, etc.)
         model_id: Which model produced the error
     """
-    
+
     model_config = {"frozen": True}
 
     occurred: bool = Field(default=False, description="Error detected")

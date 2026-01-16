@@ -73,7 +73,7 @@ class BanditFeedback(BaseModel):
         - LinUCB: Weighted matrix updates (A += confidence * x @ x.T)
         Use lower confidence for implicit signals (regeneration, time-based).
     """
-    
+
     model_config = {"frozen": True}
 
     model_id: str
