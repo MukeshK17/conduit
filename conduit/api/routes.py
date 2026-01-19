@@ -166,7 +166,9 @@ def create_routes(service: RoutingService) -> APIRouter:
 
             lines: list[str] = []
 
-            lines.append("# HELP conduit_queries_total Total number of queries processed")
+            lines.append(
+                "# HELP conduit_queries_total Total number of queries processed"
+            )
             lines.append("# TYPE conduit_queries_total counter")
             lines.append(f"conduit_queries_total {total_queries}")
 
@@ -181,9 +183,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             lines.append("# HELP conduit_model_queries_total Queries per model")
             lines.append("# TYPE conduit_model_queries_total counter")
             for model, count in model_distribution.items():
-                lines.append(
-                    f'conduit_model_queries_total{{model="{model}"}} {count}'
-                )
+                lines.append(f'conduit_model_queries_total{{model="{model}"}} {count}')
 
             return Response(
                 content="\n".join(lines) + "\n",
