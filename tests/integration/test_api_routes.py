@@ -286,6 +286,15 @@ class TestMetricsEndpoint:
         assert 'conduit_model_queries_total{model="gpt-4o-mini"} 892' in body
         assert 'conduit_model_queries_total{model="claude-3-haiku"} 631' in body
 
+    def test_metrics_endpoint_error(self, test_client):
+        client, mock_service = test_client
+
+        mock_service.get_stats = AsyncMock(side_effect=RuntimeError("DB error"))
+
+        response = client.get("/metrics")
+
+        assert response.status_code == 500
+
 
 class TestModelsEndpoint:
     """Test /v1/models endpoint."""
@@ -305,4 +314,6 @@ class TestModelsEndpoint:
         data = response.json()
         assert "models" in data
         assert len(data["models"]) == 3
-        assert data["default_model"] == "claude-haiku-4-5-20251001"  # First model from conduit.yaml priors
+        assert (
+            data["default_model"] == "claude-haiku-4-5-20251001"
+        )  # First model from conduit.yaml priors

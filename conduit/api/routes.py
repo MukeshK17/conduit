@@ -156,6 +156,11 @@ def create_routes(service: RoutingService) -> APIRouter:
     @api_router.get("/metrics")
     async def metrics() -> Response:
         """Export metrics in Prometheus format."""
+
+        def _escape_label_value(value: str) -> str:
+            """Escape Prometheus label value per exposition format spec."""
+            return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
         try:
             stats = await service.get_stats()
 
@@ -174,20 +179,22 @@ def create_routes(service: RoutingService) -> APIRouter:
 
             lines.append("# HELP conduit_cost_dollars_total Total cost in dollars")
             lines.append("# TYPE conduit_cost_dollars_total counter")
-            lines.append(f"conduit_cost_dollars_total {total_cost}")
+            lines.append(f"conduit_cost_dollars_total {total_cost:.6f}")
 
             lines.append("# HELP conduit_latency_seconds Average latency in seconds")
             lines.append("# TYPE conduit_latency_seconds gauge")
-            lines.append(f"conduit_latency_seconds {avg_latency}")
+            lines.append(f"conduit_latency_seconds {avg_latency:.6f}")
 
             lines.append("# HELP conduit_model_queries_total Queries per model")
             lines.append("# TYPE conduit_model_queries_total counter")
             for model, count in model_distribution.items():
-                lines.append(f'conduit_model_queries_total{{model="{model}"}} {count}')
+                lines.append(
+                    f'conduit_model_queries_total{{model="{_escape_label_value(model)}"}} {count}'
+                )
 
             return Response(
                 content="\n".join(lines) + "\n",
-                media_type="text/plain",
+                media_type="text/plain; version=0.0.4; charset=utf-8",
             )
 
         except Exception as e:
