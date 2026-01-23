@@ -22,13 +22,19 @@ Usage:
     >>> pending = await store.get_and_delete_pending("query_id")  # Atomic!
 """
 
+# ruff: noqa: UP037
+
 import asyncio
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from conduit.feedback.models import PendingQuery
+
+if TYPE_CHECKING:
+    import asyncpg
+    from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -359,7 +365,7 @@ class RedisFeedbackStore(FeedbackStore):
 
     def __init__(
         self,
-        redis: Any,  # Redis async client
+        redis: "Redis",  # Redis async client
         key_prefix: str = "conduit:feedback:pending",
         default_ttl: int = 3600,
     ):
@@ -370,7 +376,7 @@ class RedisFeedbackStore(FeedbackStore):
             key_prefix: Key prefix for pending queries
             default_ttl: Default TTL in seconds (default 1 hour)
         """
-        self.redis = redis
+        self.redis: "Redis" = redis
         self.key_prefix = key_prefix
         self.default_ttl = default_ttl
 
@@ -622,7 +628,7 @@ class PostgresFeedbackStore(FeedbackStore):
 
     def __init__(
         self,
-        pool: Any,  # asyncpg pool
+        pool: "asyncpg.Pool",  # asyncpg pool
         table_name: str = "pending_feedback",
         default_ttl: int = 3600,
     ):
@@ -633,7 +639,7 @@ class PostgresFeedbackStore(FeedbackStore):
             table_name: Table name for pending queries
             default_ttl: Default TTL in seconds (default 1 hour)
         """
-        self.pool = pool
+        self.pool: "asyncpg.Pool" = pool
         self.table_name = table_name
         self.default_ttl = default_ttl
 

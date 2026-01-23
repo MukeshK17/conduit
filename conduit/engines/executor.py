@@ -236,7 +236,7 @@ class ModelExecutor:
 
         return self.clients[cache_key]
 
-    def _compute_cost(self, usage: Any, model: str) -> float:
+    def _compute_cost(self, usage: "dict[str, Any] | Any", model: str) -> float:
         """Compute cost based on token usage and model pricing.
 
         Uses LiteLLM's bundled model_cost database for accurate, up-to-date pricing.

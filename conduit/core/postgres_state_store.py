@@ -11,12 +11,14 @@ Optimistic Locking:
     3. Retrying with exponential backoff on conflict
 """
 
+# ruff: noqa: UP037
+
 import asyncio
 import json
 import logging
 import random
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from conduit.core.state_store import (
     BanditState,
@@ -24,6 +26,10 @@ from conduit.core.state_store import (
     StateStore,
     StateStoreError,
 )
+
+if TYPE_CHECKING:
+    import asyncpg
+    from asyncpg.pool import PoolConnectionProxy
 
 logger = logging.getLogger(__name__)
 
@@ -86,17 +92,20 @@ class PostgresStateStore(StateStore):
         conflict_count: Counter for version conflicts (for monitoring)
     """
 
-    def __init__(self, pool: Any) -> None:
+    def __init__(self, pool: "asyncpg.Pool") -> None:
         """Initialize PostgreSQL state store.
 
         Args:
             pool: asyncpg connection pool (from Database class)
         """
-        self.pool = pool
+        self.pool: "asyncpg.Pool" = pool
         self.conflict_count = 0  # Track conflicts for monitoring
 
     async def _get_current_version(
-        self, conn: Any, router_id: str, bandit_id: str
+        self,
+        conn: "asyncpg.Connection | PoolConnectionProxy",
+        router_id: str,
+        bandit_id: str,
     ) -> int | None:
         """Get current version for a state record.
 
