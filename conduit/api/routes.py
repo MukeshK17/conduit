@@ -82,13 +82,21 @@ def create_routes(service: RoutingService) -> APIRouter:
             logger.error(f"Routing error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
+                detail={
+                    "error": e.message,
+                    "code": e.code,
+                    "detail": e.details or None,
+                },
             ) from e
         except ExecutionError as e:
             logger.error(f"Execution error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"LLM execution failed: {str(e)}",
+                detail={
+                    "error": "LLM execution failed",
+                    "code": e.code,
+                    "detail": e.details or None,
+                },
             ) from e
         except Exception as e:
             logger.exception(f"Unexpected error in complete: {e}")
